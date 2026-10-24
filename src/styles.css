@@ -246,3 +246,61 @@ html.overlay, html.overlay body { background: transparent; overflow: hidden; }
 .xfoot .ins { margin-left: auto; background: var(--soft); color: var(--green); font-weight: 650; border-radius: 8px; padding: 7px 12px; }
 @keyframes pop { from { transform: translateY(8px) scale(0.96); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ov-bar, .xcard { animation: none; } }
+
+/* ================= clean white layer =================
+   Soft canvas, every group in a white rounded card, airy spacing.
+   Mirrors the design board: cards on #F4F6F8, hairline borders, tiny shadows. */
+:root { --canvas: #f5f6f8; --card-line: #eceef1; --shadow-soft: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.03); font-size: 13.5px; }
+body { background: var(--canvas); }
+.shell { grid-template-columns: 224px 1fr; background: var(--canvas); }
+.side { background: var(--surface); border-right: 1px solid var(--card-line); padding: 24px 16px; gap: 2px; }
+.brand { padding: 2px 10px 26px; }
+.brand b { font-size: 17px; letter-spacing: -0.2px; }
+.nav { height: 38px; border-radius: 10px; color: var(--sec); }
+.nav .icon { color: var(--muted); }
+.nav:hover { background: var(--canvas); color: var(--ink); }
+.nav.on { background: var(--soft); color: var(--green); font-weight: 600; }
+.nav.on .icon { color: var(--green); }
+.side-foot { background: var(--canvas); border-radius: 12px; padding: 12px; margin: auto 0 0; }
+
+.page { padding: 44px max(40px, calc((100% - 820px) / 2)) 72px; }
+.page-head { margin-bottom: 24px; }
+.page-head h1 { font-size: 26px; letter-spacing: -0.4px; }
+.page-head p { font-size: 13.5px; }
+.section { margin-top: 34px; }
+.section > h2 { color: var(--sec); font-size: 10.5px; margin-bottom: 4px; }
+.section > p.lead { margin-bottom: 12px; font-size: 12.5px; }
+
+/* white cards */
+.rows, .history, .models, .pairs, .preview, .hero-bar, .feature, .card {
+  background: var(--surface); border: 1px solid var(--card-line); border-radius: 16px; box-shadow: var(--shadow-soft);
+}
+.rows { padding: 0 22px; border-top: 1px solid var(--card-line); }
+.srow { padding: 17px 0; border-bottom: 1px solid var(--card-line); }
+.srow:last-child { border-bottom: 0; }
+.history, .models { padding: 0 22px; }
+.history li, .models li { border-bottom: 1px solid var(--card-line); }
+.history li:first-child { border-top: 0; }
+.history li:last-child, .models li:last-child { border-bottom: 0; }
+.models { border-top: 1px solid var(--card-line); }
+.pairs { border-collapse: separate; border-spacing: 0; padding: 14px 18px 10px; }
+.preview { padding: 14px 16px; }
+.hero-bar { justify-content: center; padding: 34px 24px; margin: 0 0 18px; background: linear-gradient(180deg, #fbfcfc, #f6f8f8); }
+.features { gap: 12px; margin-bottom: 4px; }
+.feature { padding: 16px 18px; }
+.feature .fi { background: var(--soft); color: var(--green); }
+
+/* inputs + buttons: a touch rounder */
+.input, .page input[type="text"], .page input:not([type]), .page input[type="password"], .page textarea, .select-btn { border-radius: 10px; border-color: #e3e6e9; height: 36px; }
+.page textarea { height: auto; }
+.btn { border-radius: 10px; height: 36px; border-color: #e3e6e9; }
+.btn.sm, button.sm { height: 30px; border-radius: 8px; }
+.chip { background: var(--surface); border: 1px solid var(--card-line); }
+.chip.add { background: var(--surface); border: 1px dashed #d8dcdf; color: var(--sec); }
+.banner { border-radius: 12px; border: 1px solid transparent; }
+.banner.ok { border-color: #cfeeda; }
+.keycap { box-shadow: 0 1px 0 #e3e6e9; }
+.searchbar { margin-bottom: 14px; }
+.empty { justify-content: center; padding: 34px 0; }
+.setup { background: var(--canvas); }
+.setup-card { border: 1px solid var(--card-line); box-shadow: 0 12px 40px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04); }
