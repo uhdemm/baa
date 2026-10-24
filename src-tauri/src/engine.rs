@@ -158,3 +158,40 @@ impl Engine {
         Ok(if text.is_empty() { Outcome::NoSpeech } else { Outcome::Text(text) })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 16-bit mono 16 kHz WAV -> f32 samples (test fixture only).
+    fn read_wav(p: &str) -> Vec<f32> {
+        let b = std::fs::read(p).unwrap();
+        let data = b.windows(4).position(|w| w == b"data").unwrap() + 8;
+        b[data..].chunks_exact(2).map(|c| i16::from_le_bytes([c[0], c[1]]) as f32 / 32768.0).collect()
+    }
+
+    /// cargo test --lib -- --ignored   (needs BAA_TEST_MODEL=path\to\model.gguf)
+    #[test]
+    #[ignore]
+    fn transcribes_a_wav() {
+        let model = std::env::var("BAA_TEST_MODEL").expect("set BAA_TEST_MODEL");
+        let engine = Engine::new(PathBuf::from("resources/silero-vad.bin"));
+        let pcm = read_wav("tests/hello.wav");
+        let t0 = Instant::now();
+        let out = engine.transcribe(Path::new(&model), &pcm, true, None, vec![]).unwrap();
+        let first = t0.elapsed();
+        let t1 = Instant::now();
+        let again = engine.transcribe(Path::new(&model), &pcm, true, None, vec![]).unwrap();
+        println!("backend: {:?}", engine.status().backend);
+        println!("cold (load + run): {first:?}, warm run: {:?}", t1.elapsed());
+        match (out, again) {
+            (Outcome::Text(t), Outcome::Text(_)) => {
+                println!("TEXT: {t}");
+                assert!(t.to_lowercase().contains("sheep"));
+            }
+            _ => panic!("no speech detected"),
+        }
+        // silence must come back as NoSpeech, not hallucinated text
+        assert!(matches!(engine.transcribe(Path::new(&model), &vec![0.0; 32000], true, None, vec![]).unwrap(), Outcome::NoSpeech));
+    }
+}

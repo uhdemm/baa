@@ -44,11 +44,14 @@ pub fn process(raw: &str, s: &Settings, profile: Option<&AppProfile>) -> String 
     }
 
     if s.remove_fillers {
+        let started_upper = t.chars().next().is_some_and(char::is_uppercase);
         t = fillers().replace_all(&t, "").to_string();
-        // a sentence that started with "Um," keeps its capital letter
-        let mut c = t.chars();
-        if let Some(f) = c.next() {
-            t = f.to_uppercase().collect::<String>() + c.as_str();
+        // "Um, so I think" -> "So I think": keep the capital the sentence had
+        if started_upper {
+            let mut c = t.chars();
+            if let Some(f) = c.next() {
+                t = f.to_uppercase().collect::<String>() + c.as_str();
+            }
         }
     }
     for r in &s.replacements {
