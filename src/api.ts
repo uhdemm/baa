@@ -92,6 +92,7 @@ export interface AiStatus { ready: boolean; keys: string[] }
 
 export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
+  startupWarning: () => invoke<string | null>("startup_warning"),
   setSettings: (settings: Settings) => invoke<Settings>("set_settings", { settings }),
   listModels: () => invoke<ModelRow[]>("list_models"),
   downloadModel: (id: string) => invoke<void>("download_model", { id }),

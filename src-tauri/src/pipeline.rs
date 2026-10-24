@@ -365,31 +365,40 @@ pub fn on_global_shortcut(app: &AppHandle, sc: &Shortcut, pressed: bool) {
     }
 }
 
-/// (Re)binds all shortcuts from settings. On error nothing is half-bound: the
-/// caller re-applies the previous settings.
+/// (Re)binds all shortcuts from settings. A shortcut another app already owns
+/// doesn't stop the others from binding; the error names every one that failed.
 pub fn register(app: &AppHandle, s: &Settings) -> anyhow::Result<()> {
     let gs = app.global_shortcut();
     gs.unregister_all()?;
     BOUND.lock().clear();
-    let bind = |text: &str, action: Action, label: &str| -> anyhow::Result<()> {
+    let mut problems: Vec<String> = vec![];
+    let mut bind = |text: &str, action: Action, label: &str| {
         if text.trim().is_empty() {
-            return Ok(());
+            return;
         }
-        let sc: Shortcut = text.parse().map_err(|e| anyhow::anyhow!("{label} shortcut \"{text}\" isn't valid: {e}"))?;
-        gs.register(sc).map_err(|e| anyhow::anyhow!("{label} shortcut \"{text}\" is taken by another app: {e}"))?;
-        BOUND.lock().push((sc, action));
-        Ok(())
+        let sc: Shortcut = match text.parse() {
+            Ok(sc) => sc,
+            Err(e) => return problems.push(format!("{label} shortcut \"{text}\" isn't valid ({e})")),
+        };
+        match gs.register(sc) {
+            Ok(()) => BOUND.lock().push((sc, action)),
+            Err(_) => problems.push(format!("{label} shortcut \"{text}\" is already used by another app")),
+        }
     };
     // Modifier-only chords (Ctrl+Win) go through our keyboard hook instead.
     if let Some(mask) = keyhook::parse_modifier_only(&s.shortcut) {
         keyhook::set_chord(mask, chord_sender(app));
     } else {
         keyhook::set_chord(0, chord_sender(app));
-        bind(&s.shortcut, Action::Dictate, "Dictation")?;
+        bind(&s.shortcut, Action::Dictate, "Dictation");
     }
-    bind(&s.command_shortcut, Action::Command, "Command mode")?;
-    bind(&s.repaste_shortcut, Action::Repaste, "Paste last")?;
-    Ok(())
+    bind(&s.command_shortcut, Action::Command, "Command mode");
+    bind(&s.repaste_shortcut, Action::Repaste, "Paste last");
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        anyhow::bail!("{}. Pick another in Settings.", problems.join("; "))
+    }
 }
 
 /// The hook must return to Windows within milliseconds, so chord events are queued

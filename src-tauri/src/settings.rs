@@ -115,7 +115,7 @@ impl Default for Settings {
         Settings {
             shortcut: "Ctrl+Space".into(),
             mode: Mode::Hybrid,
-            command_shortcut: "Ctrl+Alt+Space".into(),
+            command_shortcut: "Alt+Shift+Space".into(),
             repaste_shortcut: "Alt+Shift+V".into(),
             live_preview: true,
             ai: AiSettings::default(),

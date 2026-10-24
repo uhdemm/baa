@@ -33,6 +33,7 @@ export default function App() {
 
   useEffect(() => {
     reload();
+    api.startupWarning().then((w) => w && setError(w));
     const un1 = listen<string>("navigate", (e) => setPage(e.payload as PageId));
     const un2 = listen("settings-changed", () => reload());
     return () => {

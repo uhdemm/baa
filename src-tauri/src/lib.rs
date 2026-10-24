@@ -36,6 +36,8 @@ pub struct AppState {
     pipe: Mutex<Pipe>,
     /// the setup screen's mic test is running
     mic_test: Mutex<bool>,
+    /// e.g. a shortcut another app owns; shown in the settings window
+    startup_warning: Mutex<Option<String>>,
 }
 
 type S<'a> = State<'a, Arc<AppState>>;
@@ -86,9 +88,15 @@ fn set_settings(app: AppHandle, st: S, settings: Settings) -> Result<Settings, S
             let _ = pipeline::register(&app, &old);
             return Err(e.to_string());
         }
+        *st.startup_warning.lock() = None;
     }
     st.settings.set(settings.clone()).map_err(err)?;
     Ok(settings)
+}
+
+#[tauri::command]
+fn startup_warning(st: S) -> Option<String> {
+    st.startup_warning.lock().clone()
 }
 
 #[tauri::command]
@@ -273,13 +281,15 @@ pub fn run() {
                 })),
                 pipe: Mutex::new(Pipe::default()),
                 mic_test: Mutex::new(false),
+                startup_warning: Mutex::new(None),
             });
             app.manage(state.clone());
 
             let s = state.settings.get();
+            // Whatever couldn't bind is reported; everything else still works.
             if let Err(e) = pipeline::register(&handle, &s) {
-                eprintln!("baa: {e}; falling back to default shortcuts");
-                let _ = pipeline::register(&handle, &Settings::default());
+                eprintln!("baa: {e}");
+                *state.startup_warning.lock() = Some(e.to_string());
             }
             overlay::create(&handle)?;
 
@@ -323,6 +333,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             set_settings,
+            startup_warning,
             list_models,
             download_model,
             cancel_download,
