@@ -5,6 +5,7 @@ import { api, Entry, Stats } from "../api";
 import type { PageProps } from "../App";
 import Face from "../ui/Face";
 import Wave from "../ui/Wave";
+import { Keys } from "../ui/controls";
 
 const PAGE = 50;
 
@@ -16,7 +17,43 @@ function ago(ts: number) {
   return new Date(ts * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export default function Home({ settings }: PageProps) {
+const HIDE_KEY = "baa.getStarted.hidden";
+const hiddenAtStart = (() => { try { return localStorage.getItem(HIDE_KEY) === "1"; } catch { return false; } })();
+
+/** First-run checklist + the tricks people miss. Goes away once you're set up. */
+function GetStarted({ settings, stats, go }: { settings: PageProps["settings"]; stats: Stats | null; go: (page: string) => void }) {
+  const [hidden, setHidden] = useState(hiddenAtStart);
+  const steps = [
+    { done: !!settings.model, title: "Get a speech model", desc: "The part that turns your voice into words. Runs on this PC.", act: "Models", page: "models" },
+    { done: (stats?.total_dictations ?? 0) > 0, title: "Say something", desc: `Click into any text box, hold ${settings.shortcut.replace(/\+/g, " ")} and talk. Let go and your words appear.` },
+    { done: settings.ai.cleanup, title: "Turn on AI clean-up", desc: "Optional. Fixes grammar, makes lists and emails look right. Free options included.", act: "Set up", page: "ai" },
+    { done: settings.overlay_style === "buddy", title: "Get a buddy", desc: "Optional. A little sheep on your taskbar that says your words in a speech bubble.", act: "Pick one", page: "buddy" },
+  ];
+  if (hidden || steps.every((x) => x.done)) return null;
+  const hide = () => { setHidden(true); try { localStorage.setItem(HIDE_KEY, "1"); } catch { /* fine */ } };
+  return (
+    <div className="section get-started">
+      <div className="gs-head"><h2>Get started</h2><button className="btn ghost sm" onClick={hide}>Hide</button></div>
+      <ol className="gs-steps">
+        {steps.map((st) => (
+          <li key={st.title} className={st.done ? "done" : ""}>
+            <i className="gs-check">{st.done ? "✓" : ""}</i>
+            <div><b>{st.title}</b><span>{st.desc}</span></div>
+            {!st.done && st.page && <button className="btn sm" onClick={() => go(st.page!)}>{st.act}</button>}
+          </li>
+        ))}
+      </ol>
+      <div className="gs-tricks">
+        <span><b>Tap</b> the shortcut instead of holding it to talk hands-free; tap again to finish.</span>
+        <span><b>Esc</b> cancels while you're talking.</span>
+        <span><b>Select text</b>, hold <Keys combo={settings.command_shortcut} /> and say what to change ("make this shorter").</span>
+        <span><b><Keys combo={settings.repaste_shortcut} /></b> pastes your last dictation again.</span>
+      </div>
+    </div>
+  );
+}
+
+export default function Home({ settings, go }: PageProps & { go: (page: string) => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [rows, setRows] = useState<Entry[]>([]);
   const [query, setQuery] = useState("");
@@ -66,6 +103,8 @@ export default function Home({ settings }: PageProps) {
         </div>
         <p>Ready when you are. Your words land wherever you're typing.</p>
       </div>
+
+      <GetStarted settings={settings} stats={stats} go={go} />
 
       {stats && (
         <div className="stats">

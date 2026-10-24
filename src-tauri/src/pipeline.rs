@@ -285,6 +285,7 @@ fn dictate(
     paste::paste_with_html(&out, html.as_deref(), send, s.restore_clipboard).map_err(|e| anyhow::anyhow!("Couldn't paste: {e}"))?;
     let _ = st.history.add(out.trim_end(), &raw, focused.as_deref(), text::word_count(&out), audio_ms, Some(model_id));
     let _ = app.emit("history-changed", ());
+    let _ = app.emit("dictation-done", out.trim_end());
     if s.learn_words {
         let app = app.clone();
         learn::watch(out.trim_end().to_string(), move |words| suggest_words(&app, words));

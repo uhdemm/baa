@@ -9,7 +9,7 @@ export default defineConfig(() => ({
   plugins: [react()],
   build: {
     rollupOptions: {
-      input: { main: resolve("index.html"), overlay: resolve("overlay.html") },
+      input: { main: resolve("index.html"), overlay: resolve("overlay.html"), buddy: resolve("buddy.html") },
     },
   },
 

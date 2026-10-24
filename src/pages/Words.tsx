@@ -44,7 +44,7 @@ export default function Words({ settings, save }: PageProps) {
 
       <div className="section">
         <h2>Custom words</h2>
-        <p className="lead">Names and terms the model should spell your way. Works best with Parakeet and Canary.</p>
+        <p className="lead">Names and terms Baa should spell your way (people, brands, jargon). Works best with the Parakeet and Canary models.</p>
         <div className="searchbar">
           <input className="input" style={{ width: 280 }} value={word} placeholder="e.g. Remotion" onChange={(e) => setWord(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addWord()} />
           <button className="btn" onClick={addWord}>Add</button>
@@ -61,7 +61,7 @@ export default function Words({ settings, save }: PageProps) {
 
       <div className="section">
         <h2>Replacements</h2>
-        <p className="lead">When the model writes the left side, Baa types the right side.</p>
+        <p className="lead">Baa keeps writing a word wrong? Put what it writes on the left and what you want on the right.</p>
         <PairTable rows={settings.replacements.map((r) => [r.from, r.to])} labels={["It hears", "Baa types"]}
           onChange={(rows) => save({ ...settings, replacements: rows.map(([from, to]) => ({ from, to })) })} />
       </div>
@@ -75,7 +75,7 @@ export default function Words({ settings, save }: PageProps) {
 
       <div className="section">
         <h2>Try it</h2>
-        <p className="lead">Type what the model might hear and see what Baa would paste.</p>
+        <p className="lead">Type a sentence the way you'd say it and see what Baa would paste.</p>
         <input className="input wide" value={test} onChange={(e) => setTest(e.target.value)} />
         <p className="preview">{preview || " "}</p>
       </div>

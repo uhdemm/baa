@@ -181,6 +181,17 @@ pub struct Settings {
     pub overlay_position: String,
     pub show_overlay: bool,
     pub sounds: bool,
+    /// What pops up while you talk: "bar" (the Apple-style capsule) or "buddy" (the character)
+    pub overlay_style: String,
+    /// Buddy: "taskbar" (sits on it, always there), "popup" (only while talking), "free" (anywhere)
+    pub buddy_place: String,
+    /// "small" | "medium" | "large"
+    pub buddy_size: String,
+    /// Where you dragged it, as a fraction of the screen (0 = left/top, 1 = right/bottom)
+    pub buddy_x: f64,
+    pub buddy_y: f64,
+    /// Doze off after a while with nothing to do
+    pub buddy_sleeps: bool,
     pub character: String,
     pub onboarded: bool,
 }
@@ -221,6 +232,12 @@ impl Default for Settings {
             overlay_position: "bottom".into(),
             show_overlay: true,
             sounds: true,
+            overlay_style: "bar".into(),
+            buddy_place: "taskbar".into(),
+            buddy_size: "medium".into(),
+            buddy_x: 0.88,
+            buddy_y: 1.0,
+            buddy_sleeps: true,
             character: "sheep".into(),
             onboarded: false,
         }

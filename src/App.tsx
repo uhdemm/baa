@@ -15,14 +15,16 @@ import Look from "./pages/Look";
 import Setup from "./pages/Setup";
 import Notes from "./pages/Notes";
 import Style from "./pages/Style";
+import Buddy from "./pages/Buddy";
 
 const PAGES = [
   { id: "home", label: "Home", icon: "home", group: "Baa" },
   { id: "notes", label: "Notes", icon: "notes", group: "Baa" },
-  { id: "style", label: "Style", icon: "style", group: "Baa" },
-  { id: "models", label: "Models", icon: "models", group: "Baa" },
-  { id: "words", label: "Words", icon: "words", group: "Baa" },
-  { id: "apps", label: "Apps", icon: "apps", group: "Baa" },
+  { id: "buddy", label: "Buddy", icon: "buddy", group: "Make it yours" },
+  { id: "style", label: "Style", icon: "style", group: "Make it yours" },
+  { id: "words", label: "Words", icon: "words", group: "Make it yours" },
+  { id: "apps", label: "Apps", icon: "apps", group: "Make it yours" },
+  { id: "models", label: "Models", icon: "models", group: "Settings" },
   { id: "ai", label: "AI", icon: "ai", group: "Settings" },
   { id: "look", label: "Appearance", icon: "look", group: "Settings" },
   { id: "settings", label: "General", icon: "settings", group: "Settings" },
@@ -104,9 +106,9 @@ export default function App() {
           <div className="drag" data-tauri-drag-region />
         </div>
         <div className="brand"><Face size={18} /><b>Baa</b></div>
-        {(["Baa", "Settings"] as const).map((g) => (
+        {(["Baa", "Make it yours", "Settings"] as const).map((g) => (
           <div key={g}>
-            {g === "Settings" && <div className="nav-head">Settings</div>}
+            {g !== "Baa" && <div className="nav-head">{g}</div>}
             {PAGES.filter((p) => p.group === g).map((p) => (
               <button key={p.id} className={`nav ${page === p.id ? "on" : ""}`} onClick={() => setPage(p.id)}>
                 <Icon name={p.icon} size={16} />{p.label}
@@ -127,9 +129,10 @@ export default function App() {
         <main className="page">
           <div className="page-inner">
             {error && <div className="banner err" onClick={() => setError(null)}>{error}</div>}
-            {page === "home" && <Home {...props} />}
+            {page === "home" && <Home {...props} go={(p) => setPage(p as PageId)} />}
             {page === "notes" && <Notes {...props} />}
             {page === "style" && <Style {...props} />}
+            {page === "buddy" && <Buddy {...props} />}
             {page === "models" && <Models {...props} />}
             {page === "words" && <Words {...props} />}
             {page === "apps" && <Apps {...props} />}

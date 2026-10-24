@@ -41,6 +41,10 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 futures-util = "0.3"
 # API keys go in Windows Credential Manager, not a plain file
 keyring = { version = "3", features = ["windows-native"] }
+# .baa character packs are zip files
+zip = { version = "2", default-features = false, features = ["deflate"] }
+# Character Studio: cleaning, cutting and packing sprite sheets
+image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 
 [target.'cfg(windows)'.dependencies]
 transcribe-cpp = { version = "0.4.0", default-features = false, features = ["serde", "vulkan"] }

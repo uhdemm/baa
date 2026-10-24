@@ -126,6 +126,52 @@ pub fn focused_title() -> Option<String> {
     }
 }
 
+/// Apps with a visible window right now (exe names, lowercased), for the Apps page.
+#[cfg(windows)]
+pub fn open_apps() -> Vec<String> {
+    use windows::core::{BOOL, PWSTR};
+    use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM};
+    use windows::Win32::System::Threading::{OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION};
+    use windows::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowTextLengthW, GetWindowThreadProcessId, IsWindowVisible};
+    unsafe extern "system" fn each(h: HWND, lp: LPARAM) -> BOOL {
+        let pids = &mut *(lp.0 as *mut Vec<u32>);
+        if IsWindowVisible(h).as_bool() && GetWindowTextLengthW(h) > 0 {
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(h, Some(&mut pid));
+            if pid != 0 && !pids.contains(&pid) {
+                pids.push(pid);
+            }
+        }
+        BOOL(1)
+    }
+    let mut pids: Vec<u32> = vec![];
+    unsafe {
+        let _ = EnumWindows(Some(each), LPARAM(&mut pids as *mut _ as isize));
+    }
+    let me = std::process::id();
+    let mut names: Vec<String> = pids
+        .into_iter()
+        .filter(|p| *p != me)
+        .filter_map(|pid| unsafe {
+            let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            let mut buf = [0u16; 512];
+            let mut len = buf.len() as u32;
+            let ok = QueryFullProcessImageNameW(h, PROCESS_NAME_FORMAT(0), PWSTR(buf.as_mut_ptr()), &mut len).is_ok();
+            let _ = CloseHandle(h);
+            ok.then(|| String::from_utf16_lossy(&buf[..len as usize]).rsplit('\\').next().unwrap_or("").to_lowercase())
+        })
+        .filter(|n| !n.is_empty() && !["explorer.exe", "textinputhost.exe", "applicationframehost.exe", "searchhost.exe", "shellexperiencehost.exe", "startmenuexperiencehost.exe", "systemsettings.exe", "baa.exe"].contains(&n.as_str()))
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+#[cfg(not(windows))]
+pub fn open_apps() -> Vec<String> {
+    vec![]
+}
+
 #[cfg(not(windows))]
 pub fn focused_title() -> Option<String> {
     None

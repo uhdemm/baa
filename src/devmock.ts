@@ -12,6 +12,7 @@ const settings = {
   custom_words: ["Big Square", "Baa"], replacements: [{ from: "big square", to: "Big Square" }],
   snippets: [{ trigger: "my email", text: "adam@example.com" }], app_profiles: [{ exe: "discord.exe", auto_send: "enter", style: "lowercase" }],
   unload_after_secs: 300, overlay_position: "bottom", show_overlay: true, sounds: true, character: "sheep",
+  overlay_style: "buddy", buddy_place: "taskbar", buddy_size: "medium", buddy_x: 0.88, buddy_y: 1, buddy_sleeps: true,
   onboarded: !location.search.includes("setup"),
 };
 const now = Math.floor(Date.now() / 1000);
@@ -42,6 +43,7 @@ const data: Record<string, unknown> = {
   list_ai_models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3-32b", "moonshotai/kimi-k2-instruct"],
   preview_text: "So send it to adam@example.com please ",
   "plugin:autostart|is_enabled": false,
+  characters_list: [], studio_status: { codex: true }, studio_list: [],
   note_ask: "Hi Brad,\n\nThanks for today. Quick recap: the shoot is Friday at 9:30 AM at the studio. I'll bring the softboxes, tripod and SD cards.\n\nAdam",
 };
 

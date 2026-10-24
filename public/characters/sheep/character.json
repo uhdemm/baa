@@ -1,0 +1,406 @@
+{
+ "author": "Adam",
+ "description": "The original. Scruffy, nervous, and he really means it when he hits send.",
+ "format": 1,
+ "full_body": true,
+ "id": "sheep",
+ "name": "Sheep",
+ "sheets": {
+  "appear": {
+   "cols": 3,
+   "file": "appear.webp",
+   "frames": 6,
+   "heads": [
+    [
+     196.0,
+     89
+    ],
+    [
+     195.0,
+     34
+    ],
+    [
+     183.0,
+     82
+    ],
+    [
+     195.0,
+     18
+    ],
+    [
+     210.0,
+     18
+    ],
+    [
+     187.0,
+     19
+    ]
+   ],
+   "rows": 2
+  },
+  "error": {
+   "cols": 3,
+   "file": "error.webp",
+   "frames": 6,
+   "heads": [
+    [
+     188.0,
+     22
+    ],
+    [
+     180.0,
+     25
+    ],
+    [
+     195.0,
+     27
+    ],
+    [
+     195.0,
+     18
+    ],
+    [
+     192.0,
+     17
+    ],
+    [
+     184.0,
+     12
+    ]
+   ],
+   "rows": 2
+  },
+  "idle": {
+   "cols": 3,
+   "file": "idle.webp",
+   "frames": 6,
+   "heads": [
+    [
+     197.0,
+     19
+    ],
+    [
+     198.0,
+     18
+    ],
+    [
+     197.0,
+     19
+    ],
+    [
+     190.0,
+     16
+    ],
+    [
+     196.0,
+     19
+    ],
+    [
+     204.0,
+     16
+    ]
+   ],
+   "rows": 2
+  },
+  "send": {
+   "cols": 3,
+   "file": "send.webp",
+   "frames": 6,
+   "heads": [
+    [
+     203.0,
+     24
+    ],
+    [
+     173.0,
+     30
+    ],
+    [
+     249.0,
+     30
+    ],
+    [
+     225.0,
+     16
+    ],
+    [
+     196.0,
+     10
+    ],
+    [
+     186.0,
+     16
+    ]
+   ],
+   "rows": 2
+  },
+  "sleep": {
+   "cols": 3,
+   "file": "sleep.webp",
+   "frames": 6,
+   "heads": [
+    [
+     192.0,
+     22
+    ],
+    [
+     202.0,
+     74
+    ],
+    [
+     185.0,
+     80
+    ],
+    [
+     194.0,
+     73
+    ],
+    [
+     192.0,
+     8
+    ],
+    [
+     196.0,
+     18
+    ]
+   ],
+   "rows": 2
+  },
+  "talk": {
+   "cols": 3,
+   "file": "talk.webp",
+   "frames": 6,
+   "heads": [
+    [
+     202.0,
+     21
+    ],
+    [
+     190.0,
+     23
+    ],
+    [
+     202.0,
+     21
+    ],
+    [
+     199.0,
+     18
+    ],
+    [
+     197.0,
+     21
+    ],
+    [
+     200.0,
+     18
+    ]
+   ],
+   "rows": 2
+  },
+  "think": {
+   "cols": 3,
+   "file": "think.webp",
+   "frames": 6,
+   "heads": [
+    [
+     199.0,
+     18
+    ],
+    [
+     196.0,
+     18
+    ],
+    [
+     194.0,
+     18
+    ],
+    [
+     197.0,
+     18
+    ],
+    [
+     199.0,
+     18
+    ],
+    [
+     200.0,
+     17
+    ]
+   ],
+   "rows": 2
+  }
+ },
+ "slot": {
+  "h": 248,
+  "w": 383
+ },
+ "stand_height": 230.0,
+ "states": {
+  "appear": {
+   "fps": 9,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    4,
+    5
+   ],
+   "mode": "once",
+   "sheet": "appear"
+  },
+  "cancel": {
+   "fps": 6,
+   "frames": [
+    3,
+    3,
+    0
+   ],
+   "mode": "once",
+   "sheet": "idle"
+  },
+  "error": {
+   "fps": 6,
+   "frames": [
+    0,
+    1,
+    2,
+    1,
+    2,
+    3,
+    4
+   ],
+   "mode": "once",
+   "sheet": "error"
+  },
+  "idle": {
+   "fps": 4,
+   "frames": [
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    3,
+    3,
+    0,
+    0,
+    4,
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5,
+    5,
+    5,
+    0
+   ],
+   "mode": "loop",
+   "sheet": "idle"
+  },
+  "listen": {
+   "extra": [
+    4,
+    5
+   ],
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "mode": "mouth",
+   "sheet": "talk"
+  },
+  "nothing": {
+   "fps": 4,
+   "frames": [
+    0,
+    0,
+    5,
+    5
+   ],
+   "mode": "once",
+   "sheet": "error"
+  },
+  "send": {
+   "fps": 10,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    4,
+    5
+   ],
+   "mode": "once",
+   "sheet": "send"
+  },
+  "sleep": {
+   "fps": 2,
+   "frames": [
+    2,
+    2,
+    3,
+    3
+   ],
+   "intro": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "mode": "loop",
+   "sheet": "sleep"
+  },
+  "think": {
+   "fps": 4,
+   "frames": [
+    0,
+    0,
+    1,
+    1,
+    2,
+    3,
+    2,
+    3
+   ],
+   "mode": "loop",
+   "sheet": "think"
+  },
+  "wake": {
+   "fps": 6,
+   "frames": [
+    4,
+    4,
+    5
+   ],
+   "mode": "once",
+   "sheet": "sleep"
+  }
+ }
+}

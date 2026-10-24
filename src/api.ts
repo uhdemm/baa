@@ -54,6 +54,12 @@ export interface Settings {
   overlay_position: string;
   show_overlay: boolean;
   sounds: boolean;
+  overlay_style: "bar" | "buddy";
+  buddy_place: "taskbar" | "popup" | "free";
+  buddy_size: "small" | "medium" | "large";
+  buddy_x: number;
+  buddy_y: number;
+  buddy_sleeps: boolean;
   character: string;
   onboarded: boolean;
 }

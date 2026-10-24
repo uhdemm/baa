@@ -29,8 +29,19 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Places the bar on the monitor under the mouse, then shows it without focus.
+/// Shows whichever pop-up the settings pick: the bar, or the character (buddy mode).
 pub fn show(app: &AppHandle, s: &Settings) {
+    if s.overlay_style == "buddy" {
+        if s.buddy_place == "popup" {
+            crate::buddy::place(app, s);
+        }
+        return crate::buddy::show(app);
+    }
+    show_bar(app, s)
+}
+
+/// Places the bar on the monitor under the mouse, then shows it without focus.
+fn show_bar(app: &AppHandle, s: &Settings) {
     let Some(w) = app.get_webview_window(LABEL) else { return };
     let cursor = app.cursor_position().ok();
     let monitors = app.available_monitors().unwrap_or_default();
@@ -70,7 +81,16 @@ pub fn hide(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(LABEL) {
         let _ = w.hide();
     }
+    // an always-there buddy stays; a pop-up buddy goes away like the bar
+    let st = app.state::<std::sync::Arc<crate::AppState>>();
+    let s = st.settings.get();
+    if s.overlay_style != "buddy" || s.buddy_place == "popup" {
+        crate::buddy::hide(app);
+    }
 }
+
+#[cfg(windows)]
+pub use win::{no_activate, show_no_activate};
 
 #[cfg(windows)]
 mod win {

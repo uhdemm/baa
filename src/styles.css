@@ -397,3 +397,76 @@ button.link:hover { text-decoration: underline; }
 .answer-acts { display: flex; gap: 4px; }
 button.chip { border: 0; padding: 0 10px; cursor: default; color: var(--l1); }
 button.chip:hover { background: rgba(0, 0, 0, 0.08); }
+
+/* ---------- buddy window: the character + its speech bubble ---------- */
+html.buddy-page, html.buddy-page body, html.buddy-page #root { background: transparent !important; overflow: hidden; height: 100%; }
+.buddy { position: fixed; inset: 0; }
+.buddy-sprite { position: absolute; bottom: 0; cursor: grab; }
+.buddy-sprite:active { cursor: grabbing; }
+/* comic bubble, like the sketch: white, a dark ink outline, a tail down-left to the head */
+.bubble {
+  position: absolute; max-width: 200px; padding: 7px 11px; background: #fff; color: #111;
+  border: 1.5px solid #1b1b1b; border-radius: 16px; font: 600 12.5px/16px Figtree, Inter, sans-serif;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18); transform-origin: 0% 100%; animation: bubble-in 0.18s ease-out;
+  word-break: break-word;
+}
+.bubble span { color: #111 !important; opacity: 1 !important; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.bubble span.dots { display: inline-flex; overflow: visible; }
+/* the tail: an ink triangle with a white one inside, pointing down-left at the head */
+.bubble::before, .bubble::after { content: ""; position: absolute; width: 0; height: 0; border-style: solid; }
+.bubble::before { left: 9px; bottom: -11px; border-width: 11px 9px 0 0; border-color: #1b1b1b transparent transparent transparent; }
+.bubble::after { left: 11px; bottom: -7.5px; border-width: 8px 6.5px 0 0; border-color: #fff transparent transparent transparent; }
+@keyframes bubble-in { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.bubble .dots { display: inline-flex; gap: 3px; padding: 4px 0; }
+.bubble .dots i { width: 5px; height: 5px; border-radius: 50%; background: #1b1b1b; animation: dot 1s infinite ease-in-out; }
+.bubble .dots i:nth-child(2) { animation-delay: 0.15s; }
+.bubble .dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-2px); } }
+
+/* ---------- Buddy page ---------- */
+.style-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pick-card, .char-card { border: 0; cursor: default; text-align: left; background: var(--fill); border-radius: calc(12px * var(--r)); padding: 10px 12px 12px; display: grid; gap: 2px; color: var(--l1); box-shadow: inset 0 0 0 1px transparent; position: relative; }
+.pick-card:hover, .char-card:hover { background: var(--fill-2); }
+.pick-card.on, .char-card.on { background: rgba(var(--accent-rgb), 0.08); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.pick-card b, .char-card b { font-size: 13px; margin-top: 6px; }
+.pick-card span, .char-card span { color: var(--l2); font-size: 11px; }
+.pick-stage { height: 84px; border-radius: calc(8px * var(--r)); background: linear-gradient(#e9eef5, #dfe5ee); display: grid; place-items: end center; padding-bottom: 10px; overflow: hidden; }
+.dbar.mini { transform: scale(0.8); min-width: 0; width: auto; padding-right: 14px; }
+.buddy-mini { grid-template-columns: auto auto; justify-content: center; align-items: end; gap: 2px; }
+.mini-bubble { order: 2; align-self: start; margin-top: 10px; background: #fff; border: 1.5px solid #1b1b1b; border-radius: 12px; padding: 3px 8px; font-size: 11px !important; color: #111 !important; }
+.char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.char-stage { height: 96px; display: grid; place-items: end center; border-radius: calc(8px * var(--r)); background: linear-gradient(#f3f5f8, #e8ebf0); overflow: hidden; }
+.char-card.add .char-stage { place-items: center; font-size: 28px; color: var(--l3); }
+.char-remove { position: absolute; top: 6px; right: 8px; font-style: normal; color: var(--l3); font-size: 15px; opacity: 0; }
+.char-card:hover .char-remove { opacity: 1; }
+.studio { display: grid; gap: 10px; background: var(--fill); border-radius: calc(12px * var(--r)); padding: 12px; }
+.studio-fields { display: grid; gap: 8px; }
+.page .studio textarea { resize: vertical; font: inherit; line-height: 18px; }
+.studio-refs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.studio > .btn.primary { justify-self: start; }
+.studio-master { display: grid; grid-template-columns: 180px 1fr; gap: 14px; align-items: center; }
+.studio-pic { height: 200px; border-radius: calc(10px * var(--r)); background: repeating-conic-gradient(#f2f2f2 0 25%, #fff 0 50%) 0 0 / 16px 16px; display: grid; place-items: center; overflow: hidden; }
+.studio-pic img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.studio-side { display: grid; gap: 8px; }
+.studio-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.studio-prog { display: grid; gap: 6px; }
+pre.code { font: 12px/18px ui-monospace, Consolas, monospace; background: #fff; border-radius: 8px; padding: 8px 10px; }
+
+/* ---------- Home: get started ---------- */
+.get-started { background: var(--fill); border-radius: calc(12px * var(--r)); padding: 12px 14px; gap: 10px; }
+.gs-head { display: flex; justify-content: space-between; align-items: center; }
+.get-started h2 { padding: 0 !important; }
+.gs-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 2px; }
+.gs-steps li { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--sep); }
+.gs-steps li:last-child { border-bottom: 0; }
+.gs-steps li > div { flex: 1; display: grid; gap: 1px; }
+.gs-steps li b { font-size: 13px; }
+.gs-steps li span { color: var(--l2); font-size: 11px; line-height: 14px; }
+.gs-steps li.done b { color: var(--l2); text-decoration: line-through; text-decoration-color: var(--l3); }
+.gs-check { width: 18px; height: 18px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--l3); display: grid; place-items: center; font-style: normal; font-size: 11px; color: #fff; flex: none; }
+.gs-steps li.done .gs-check { background: var(--accent); box-shadow: none; }
+.gs-tricks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; padding-top: 4px; }
+.gs-tricks span { color: var(--l2); font-size: 11px; line-height: 15px; }
+.gs-tricks b { color: var(--l1); font-weight: 600; }
+.gs-tricks .keys { display: inline-flex; vertical-align: -3px; gap: 2px; margin: 0 2px; }
+.gs-tricks .keycap { height: 16px; min-width: 16px; padding: 0 4px; font-size: 10px; border-radius: 4px; }

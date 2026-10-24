@@ -2,6 +2,8 @@
 
 mod ai;
 mod audio;
+mod buddy;
+mod characters;
 mod echo;
 mod engine;
 mod history;
@@ -14,6 +16,7 @@ mod paste;
 mod pipeline;
 mod quiet;
 mod settings;
+pub mod studio;
 mod text;
 
 use engine::Engine;
@@ -115,11 +118,15 @@ fn get_settings(st: S) -> Settings {
 }
 
 #[tauri::command]
-fn set_settings(app: AppHandle, st: S, settings: Settings) -> Result<Settings, String> {
+fn set_settings(app: AppHandle, st: S, mut settings: Settings) -> Result<Settings, String> {
     let old = st.settings.get();
+    // where the buddy sits is set by dragging it, not by the settings window's copy
+    settings.buddy_x = old.buddy_x;
+    settings.buddy_y = old.buddy_y;
     let keys_changed = old.shortcut != settings.shortcut
         || old.command_shortcut != settings.command_shortcut
-        || old.repaste_shortcut != settings.repaste_shortcut;
+        || old.repaste_shortcut != settings.repaste_shortcut
+        || old.mouse_button != settings.mouse_button;
     if keys_changed {
         if let Err(e) = pipeline::register(&app, &settings) {
             let _ = pipeline::register(&app, &old);
@@ -135,6 +142,16 @@ fn set_settings(app: AppHandle, st: S, settings: Settings) -> Result<Settings, S
     st.settings.set(settings.clone()).map_err(err)?;
     // the pop-up restyles itself live when the look changes
     let _ = app.emit("appearance-changed", &settings.appearance);
+    let buddy_changed = old.overlay_style != settings.overlay_style
+        || old.buddy_place != settings.buddy_place
+        || old.buddy_size != settings.buddy_size
+        || old.overlay_position != settings.overlay_position;
+    if buddy_changed {
+        buddy::sync(&app, &settings);
+    }
+    if buddy_changed || old.character != settings.character || old.buddy_sleeps != settings.buddy_sleeps {
+        let _ = app.emit("buddy-changed", &settings);
+    }
     Ok(settings)
 }
 
@@ -366,6 +383,140 @@ async fn note_ask(st: S<'_>, title: String, body: String, question: String) -> R
         .map_err(err)
 }
 
+// ---------- characters + buddy ----------
+
+fn characters_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let d = app.path().app_data_dir().map_err(err)?.join("characters");
+    std::fs::create_dir_all(&d).map_err(err)?;
+    Ok(d)
+}
+
+#[tauri::command]
+fn characters_list(app: AppHandle) -> Result<Vec<characters::CharacterInfo>, String> {
+    Ok(characters::list(&characters_dir(&app)?))
+}
+
+#[tauri::command]
+fn character_import(app: AppHandle, path: String) -> Result<String, String> {
+    let id = characters::import(&characters_dir(&app)?, std::path::Path::new(&path)).map_err(err)?;
+    let _ = app.emit("characters-changed", ());
+    Ok(id)
+}
+
+#[tauri::command]
+fn character_delete(app: AppHandle, st: S, id: String) -> Result<(), String> {
+    characters::delete(&characters_dir(&app)?, &id).map_err(err)?;
+    if st.settings.get().character == id {
+        let s = st.settings.update(|s| s.character = "sheep".into()).map_err(err)?;
+        let _ = app.emit("appearance-changed", &s.appearance);
+        let _ = app.emit("settings-changed", ());
+    }
+    let _ = app.emit("characters-changed", ());
+    Ok(())
+}
+
+/// The character's box in the buddy window, so it (and only it) can be grabbed.
+#[tauri::command]
+fn buddy_hit(x: f64, y: f64, w: f64, h: f64) {
+    buddy::set_hit((w > 0.0).then_some((x, y, w, h)));
+}
+
+#[tauri::command]
+fn buddy_moved(app: AppHandle, st: S) -> Result<(), String> {
+    let mut s = st.settings.get();
+    buddy::moved(&app, &mut s);
+    st.settings.set(s).map_err(err)
+}
+
+#[tauri::command]
+fn open_baa(app: AppHandle, page: Option<String>) {
+    open_main(&app, page.as_deref());
+}
+
+#[tauri::command]
+fn open_apps() -> Vec<String> {
+    paste::open_apps()
+}
+
+// ---------- Character Studio ----------
+
+fn studio_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let d = app.path().app_data_dir().map_err(err)?.join("studio");
+    std::fs::create_dir_all(&d).map_err(err)?;
+    Ok(d)
+}
+
+#[derive(Serialize)]
+struct StudioStatus {
+    codex: bool,
+}
+
+#[tauri::command]
+fn studio_status() -> StudioStatus {
+    StudioStatus { codex: studio::codex::available() }
+}
+
+#[tauri::command]
+fn studio_list(app: AppHandle) -> Result<Vec<studio::Project>, String> {
+    Ok(studio::list(&studio_dir(&app)?))
+}
+
+#[tauri::command]
+fn studio_create(app: AppHandle, name: String, description: String, refs: Vec<String>) -> Result<studio::Project, String> {
+    let refs: Vec<std::path::PathBuf> = refs.into_iter().map(Into::into).collect();
+    studio::create(&studio_dir(&app)?, &name, &description, &refs).map_err(err)
+}
+
+/// Draws the master pose (a few minutes). Progress arrives as "studio-progress" events.
+#[tauri::command]
+async fn studio_master(app: AppHandle, id: String) -> Result<String, String> {
+    let root = studio_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = studio::load(&root, &id).map_err(err)?;
+        let tell = |pr: studio::Progress| {
+            let _ = app.emit("studio-progress", pr);
+        };
+        studio::draw_master(&root, &p, &tell).map(|p| p.to_string_lossy().into_owned()).map_err(|e| {
+            tell(studio::Progress { id: id.clone(), step: "error".into(), done: 0, total: 1, message: e.to_string() });
+            err(e)
+        })
+    })
+    .await
+    .map_err(err)?
+}
+
+/// Draws every mood, packs and installs the character, and picks it.
+#[tauri::command]
+async fn studio_moves(app: AppHandle, id: String) -> Result<String, String> {
+    let root = studio_dir(&app)?;
+    let chars = characters_dir(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut p = studio::load(&root, &id).map_err(err)?;
+        p.master_ok = true;
+        studio::save(&root, &p).map_err(err)?;
+        let tell = |pr: studio::Progress| {
+            let _ = app.emit("studio-progress", pr);
+        };
+        match studio::draw_moves(&root, &chars, &p, &tell) {
+            Ok(cid) => {
+                let st = app.state::<Arc<AppState>>();
+                if let Ok(s) = st.settings.update(|s| s.character = cid.clone()) {
+                    let _ = app.emit("buddy-changed", &s);
+                    let _ = app.emit("settings-changed", ());
+                }
+                let _ = app.emit("characters-changed", ());
+                Ok(cid)
+            }
+            Err(e) => {
+                tell(studio::Progress { id: id.clone(), step: "error".into(), done: 0, total: 1, message: e.to_string() });
+                Err(err(e))
+            }
+        }
+    })
+    .await
+    .map_err(err)?
+}
+
 // ---------- startup ----------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -411,6 +562,8 @@ pub fn run() {
                 *state.startup_warning.lock() = Some(e.to_string());
             }
             overlay::create(&handle)?;
+            buddy::create(&handle, &s)?;
+            buddy::sync(&handle, &s);
 
             // Tray: left click opens Baa, right click shows the menu.
             let open_i = MenuItem::with_id(app, "open", "Open Baa", true, None::<&str>)?;
@@ -491,7 +644,19 @@ pub fn run() {
             meeting_stop,
             meeting_status,
             meeting_update,
-            note_ask
+            note_ask,
+            characters_list,
+            character_import,
+            character_delete,
+            buddy_hit,
+            buddy_moved,
+            open_baa,
+            studio_status,
+            studio_list,
+            studio_create,
+            studio_master,
+            studio_moves,
+            open_apps
         ])
         .build(tauri::generate_context!())
         .expect("error while building Baa")
