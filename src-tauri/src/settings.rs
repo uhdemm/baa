@@ -62,9 +62,10 @@ impl Default for AiSettings {
     fn default() -> Self {
         AiSettings {
             cleanup: false,
-            provider: "anthropic".into(),
+            // free tier, fast: a good first pick
+            provider: "groq".into(),
             base_url: String::new(),
-            model: "claude-opus-5-5".into(),
+            model: "llama-3.3-70b-versatile".into(),
             prompt: DEFAULT_CLEANUP_PROMPT.into(),
             timeout_secs: 6,
         }

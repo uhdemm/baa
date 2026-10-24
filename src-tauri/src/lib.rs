@@ -230,13 +230,19 @@ fn ai_status(st: S) -> AiStatus {
     let s = st.settings.get();
     AiStatus {
         ready: ai::ready(&s.ai),
-        keys: ["anthropic", "openai", "custom"].iter().filter(|p| ai::has_key(p)).map(|p| p.to_string()).collect(),
+        keys: ai::KEYED.iter().filter(|p| ai::has_key(p)).map(|p| p.to_string()).collect(),
     }
 }
 
 #[tauri::command]
 fn set_api_key(provider: String, key: String) -> Result<(), String> {
     ai::set_key(&provider, key.trim()).map_err(err)
+}
+
+#[tauri::command]
+async fn list_ai_models(st: S<'_>) -> Result<Vec<String>, String> {
+    let ai_settings = st.settings.get().ai;
+    tauri::async_runtime::spawn_blocking(move || ai::list_models(&ai_settings)).await.map_err(err)?.map_err(err)
 }
 
 /// Runs the clean-up prompt on a sample so the user can see it work.
@@ -351,6 +357,7 @@ pub fn run() {
             preview_text,
             ai_status,
             set_api_key,
+            list_ai_models,
             test_ai
         ])
         .build(tauri::generate_context!())

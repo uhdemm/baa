@@ -9,7 +9,7 @@ export interface AppProfile { exe: string; auto_send: AutoSend | null; style: st
 
 export interface AiSettings {
   cleanup: boolean;
-  provider: "anthropic" | "openai" | "ollama" | "custom";
+  provider: "anthropic" | "openai" | "groq" | "gemini" | "cerebras" | "openrouter" | "freellmapi" | "ollama" | "custom";
   base_url: string;
   model: string;
   prompt: string;
@@ -113,6 +113,7 @@ export const api = {
   aiStatus: () => invoke<AiStatus>("ai_status"),
   setApiKey: (provider: string, key: string) => invoke<void>("set_api_key", { provider, key }),
   testAi: (sample: string) => invoke<string>("test_ai", { sample }),
+  listAiModels: () => invoke<string[]>("list_ai_models"),
 };
 
 export const fmtSize = (b: number) =>

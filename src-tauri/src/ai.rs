@@ -26,10 +26,13 @@ pub fn has_key(provider: &str) -> bool {
     get_key(provider).is_some()
 }
 
+/// Hosted services that need a key. Groq, Gemini, Cerebras and OpenRouter all have free tiers.
+pub const KEYED: &[&str] = &["anthropic", "openai", "groq", "gemini", "cerebras", "openrouter", "freellmapi", "custom"];
+
 /// Whether the configured provider can run (local servers need no key).
 pub fn ready(ai: &AiSettings) -> bool {
     match ai.provider.as_str() {
-        "ollama" => true,
+        "ollama" | "freellmapi" => true,
         "custom" => !ai.base_url.trim().is_empty(),
         p => has_key(p),
     }
@@ -42,6 +45,11 @@ fn base_url(ai: &AiSettings) -> String {
         ("anthropic", true) => "https://api.anthropic.com".into(),
         ("openai", true) => "https://api.openai.com/v1".into(),
         ("ollama", true) => "http://localhost:11434/v1".into(),
+        ("groq", true) => "https://api.groq.com/openai/v1".into(),
+        ("gemini", true) => "https://generativelanguage.googleapis.com/v1beta/openai".into(),
+        ("cerebras", true) => "https://api.cerebras.ai/v1".into(),
+        ("openrouter", true) => "https://openrouter.ai/api/v1".into(),
+        ("freellmapi", true) => "http://localhost:3001/v1".into(),
         _ => String::new(),
     }
 }
@@ -107,6 +115,43 @@ pub fn complete(ai: &AiSettings, system: &str, user: &str) -> anyhow::Result<Str
             }
             Ok(v["choices"][0]["message"]["content"].as_str().unwrap_or_default().trim().to_string())
         }
+    })
+}
+
+/// The provider's own model list, so nobody has to guess model names.
+pub fn list_models(ai: &AiSettings) -> anyhow::Result<Vec<String>> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(10)).build()?;
+    let url = base_url(ai);
+    if url.is_empty() {
+        anyhow::bail!("Enter the server address first");
+    }
+    let provider = ai.provider.clone();
+    tauri::async_runtime::block_on(async move {
+        let req = if provider == "anthropic" {
+            let key = get_key("anthropic").ok_or_else(|| anyhow::anyhow!("Save your Anthropic key first"))?;
+            client.get(format!("{url}/v1/models?limit=100")).header("x-api-key", key).header("anthropic-version", "2023-06-01")
+        } else {
+            let mut r = client.get(format!("{url}/models"));
+            if let Some(key) = get_key(&provider) {
+                r = r.bearer_auth(key);
+            }
+            r
+        };
+        let resp = req.send().await?;
+        let status = resp.status();
+        let v: Value = resp.json().await?;
+        if !status.is_success() {
+            anyhow::bail!("{}", v["error"]["message"].as_str().unwrap_or(status.as_str()));
+        }
+        let mut ids: Vec<String> = v["data"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|m| m["id"].as_str())
+            .map(|id| id.trim_start_matches("models/").to_string()) // Gemini prefixes ids
+            .collect();
+        ids.sort();
+        Ok(ids)
     })
 }
 

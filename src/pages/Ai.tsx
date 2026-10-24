@@ -1,12 +1,28 @@
 import { useEffect, useState } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { AiSettings, AiStatus, api } from "../api";
 import type { PageProps } from "../App";
 
-const PROVIDERS: { id: AiSettings["provider"]; label: string; models: string[]; needsKey: boolean; url?: string }[] = [
-  { id: "anthropic", label: "Claude (Anthropic)", models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"], needsKey: true },
-  { id: "openai", label: "OpenAI", models: [], needsKey: true },
-  { id: "ollama", label: "Ollama (runs on this PC, free)", models: [], needsKey: false, url: "http://localhost:11434/v1" },
-  { id: "custom", label: "Other (OpenAI-compatible server)", models: [], needsKey: false },
+interface Provider {
+  id: AiSettings["provider"];
+  label: string;
+  model: string; // a sensible starting model; "Load models" shows the full list
+  needsKey: boolean;
+  keyUrl?: string;
+  url?: string;
+  free?: boolean;
+}
+
+const PROVIDERS: Provider[] = [
+  { id: "groq", label: "Groq", model: "llama-3.3-70b-versatile", needsKey: true, free: true, keyUrl: "https://console.groq.com/keys" },
+  { id: "gemini", label: "Google Gemini", model: "gemini-2.5-flash", needsKey: true, free: true, keyUrl: "https://aistudio.google.com/apikey" },
+  { id: "cerebras", label: "Cerebras", model: "gpt-oss-120b", needsKey: true, free: true, keyUrl: "https://cloud.cerebras.ai" },
+  { id: "openrouter", label: "OpenRouter (free models end in :free)", model: "", needsKey: true, free: true, keyUrl: "https://openrouter.ai/keys" },
+  { id: "freellmapi", label: "FreeLLMAPI (your local free-tier pool)", model: "", needsKey: false, free: true, url: "http://localhost:3001/v1" },
+  { id: "ollama", label: "Ollama (runs on this PC)", model: "", needsKey: false, free: true, url: "http://localhost:11434/v1" },
+  { id: "anthropic", label: "Claude (Anthropic)", model: "claude-opus-5-5", needsKey: true, keyUrl: "https://console.anthropic.com/settings/keys" },
+  { id: "openai", label: "OpenAI", model: "", needsKey: true, keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "custom", label: "Other (OpenAI-compatible server)", model: "", needsKey: false },
 ];
 
 const SAMPLE = "um so i was thinking we could uh move the meeting to thursday no wait friday and then send the notes to big square";
@@ -18,6 +34,8 @@ export default function Ai({ settings, save }: PageProps) {
   const [sample, setSample] = useState(SAMPLE);
   const [result, setResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelErr, setModelErr] = useState<string | null>(null);
   const provider = PROVIDERS.find((p) => p.id === ai.provider) ?? PROVIDERS[0];
 
   const refresh = () => api.aiStatus().then(setStatus);
@@ -63,13 +81,15 @@ export default function Ai({ settings, save }: PageProps) {
           value={ai.provider}
           onChange={(e) => {
             const p = PROVIDERS.find((x) => x.id === e.target.value)!;
-            set({ provider: p.id, model: p.models[0] ?? "", base_url: "" });
+            set({ provider: p.id, model: p.model, base_url: "" });
+            setModels([]);
+            setModelErr(null);
           }}
         >
-          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.free ? " (free)" : ""}</option>)}
         </select>
 
-        {(provider.needsKey || ai.provider === "custom") && (
+        {(provider.needsKey || ai.provider === "custom" || ai.provider === "freellmapi") && (
           <>
             <label>API key</label>
             <div className="row">
@@ -82,11 +102,12 @@ export default function Ai({ settings, save }: PageProps) {
               />
               <button disabled={!key} onClick={saveKey}>Save</button>
               {hasKey && <button className="ghost" onClick={() => api.setApiKey(ai.provider, "").then(refresh)}>Remove</button>}
+              {provider.keyUrl && <button className="ghost" onClick={() => openUrl(provider.keyUrl!)}>Get a key</button>}
             </div>
           </>
         )}
 
-        {(ai.provider === "ollama" || ai.provider === "custom") && (
+        {(ai.provider === "ollama" || ai.provider === "custom" || ai.provider === "freellmapi") && (
           <>
             <label>Server address</label>
             <input value={ai.base_url} placeholder={provider.url ?? "https://…/v1"} onChange={(e) => set({ base_url: e.target.value })} />
@@ -95,8 +116,19 @@ export default function Ai({ settings, save }: PageProps) {
 
         <label>Model</label>
         <div className="row">
-          <input list="ai-models" value={ai.model} placeholder={ai.provider === "ollama" ? "e.g. llama3.2" : "model name"} onChange={(e) => set({ model: e.target.value })} />
-          <datalist id="ai-models">{provider.models.map((m) => <option key={m} value={m} />)}</datalist>
+          <input list="ai-models" value={ai.model} placeholder="model name" onChange={(e) => set({ model: e.target.value })} />
+          <datalist id="ai-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
+          <button
+            className="ghost"
+            onClick={() => {
+              setModelErr(null);
+              api.listAiModels().then((m) => { setModels(m); if (!m.length) setModelErr("No models listed"); }).catch((e) => setModelErr(String(e)));
+            }}
+          >
+            Load models
+          </button>
+          {models.length > 0 && <span className="muted sm">{models.length} available, pick from the box</span>}
+          {modelErr && <span className="sm" style={{ color: "var(--err)" }}>{modelErr}</span>}
         </div>
 
         <label>Clean up dictations</label>
