@@ -304,3 +304,107 @@ body { background: var(--canvas); }
 .empty { justify-content: center; padding: 34px 0; }
 .setup { background: var(--canvas); }
 .setup-card { border: 1px solid var(--card-line); box-shadow: 0 12px 40px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04); }
+
+/* ================= liquid glass =================
+   Apple-style frosted glass: panels are milky white you can almost see through,
+   with light catching the top edge. In the app the window is Windows 11 Mica, so
+   your wallpaper glows softly behind everything; elsewhere a soft wash stands in. */
+:root {
+  --glass: rgba(255, 255, 255, 0.62);
+  --glass-strong: rgba(255, 255, 255, 0.78);
+  --glass-edge: rgba(255, 255, 255, 0.85);
+  --glass-line: rgba(20, 30, 40, 0.06);
+  --glass-shadow: 0 0.5px 0 rgba(20, 30, 40, 0.05), 0 10px 34px -12px rgba(26, 38, 60, 0.18), 0 2px 6px -2px rgba(26, 38, 60, 0.06);
+  --rim: inset 0 1px 0.5px rgba(255, 255, 255, 0.95), inset 0 -1px 0.5px rgba(255, 255, 255, 0.35), inset 1px 0 0.5px rgba(255, 255, 255, 0.45), inset -1px 0 0.5px rgba(255, 255, 255, 0.45);
+  --blur: blur(30px) saturate(1.8);
+}
+body {
+  background:
+    radial-gradient(60% 50% at 12% 8%, rgba(120, 214, 160, 0.30), transparent 70%),
+    radial-gradient(55% 45% at 95% 12%, rgba(140, 190, 255, 0.28), transparent 70%),
+    radial-gradient(60% 60% at 70% 100%, rgba(255, 214, 170, 0.22), transparent 70%),
+    #eef1f4;
+}
+html.tauri, html.tauri body { background: transparent; }
+html.tauri body { background: linear-gradient(180deg, rgba(248, 250, 251, 0.42), rgba(243, 246, 248, 0.58)); }
+.shell { background: transparent; grid-template-columns: 236px 1fr; }
+
+/* the glass recipe */
+.side, .rows, .history, .models, .pairs, .preview, .hero-bar, .feature, .card, .setup-card, .menu, .side-foot {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--rim), var(--glass-shadow);
+}
+
+/* sidebar floats as its own glass slab */
+.side { margin: 12px 0 12px 12px; border-radius: 24px; padding: 22px 12px 12px; height: calc(100vh - 24px); }
+.brand { padding: 0 12px 24px; }
+.nav { border-radius: 999px; height: 38px; padding: 0 14px; color: var(--body); }
+.nav:hover { background: rgba(255, 255, 255, 0.55); }
+.nav.on { background: var(--glass-strong); color: var(--green); box-shadow: var(--rim), 0 2px 8px -2px rgba(11, 158, 67, 0.25); }
+.side-foot { border-radius: 18px; background: rgba(255, 255, 255, 0.45); }
+
+/* content */
+.page { padding: 40px max(36px, calc((100% - 820px) / 2)) 72px; }
+.page-head h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.8px; }
+.rows, .history, .models, .pairs, .preview, .feature, .card { border-radius: 22px; }
+.srow, .history li, .models li { border-color: var(--glass-line); }
+.rows { border-top: 1px solid var(--glass-edge); }
+.models { border-top: 1px solid var(--glass-edge); }
+.hero-bar { border-radius: 26px; padding: 40px 24px; background: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.25)); }
+.feature { padding: 18px; }
+.feature .fi { border-radius: 12px; background: rgba(11, 158, 67, 0.10); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+
+/* glass controls */
+.btn { border-radius: 999px; height: 36px; padding: 0 18px; background: var(--glass-strong); border: 1px solid var(--glass-edge); box-shadow: var(--rim), 0 1px 3px rgba(26, 38, 60, 0.08); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.btn:hover { background: rgba(255, 255, 255, 0.92); }
+.btn.primary { background: linear-gradient(180deg, #19b257, #0b9e43); border-color: rgba(255, 255, 255, 0.35); color: #fff; box-shadow: inset 0 1px 0.5px rgba(255, 255, 255, 0.55), 0 6px 16px -6px rgba(11, 158, 67, 0.6); }
+.btn.soft { background: rgba(11, 158, 67, 0.12); color: var(--green); border-color: rgba(255, 255, 255, 0.6); }
+.btn.ghost { background: none; border-color: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.btn.ghost:hover { background: rgba(255, 255, 255, 0.55); }
+.btn.sm, button.sm { border-radius: 999px; }
+.input, .page input[type="text"], .page input:not([type]), .page input[type="password"], .page textarea, .select-btn {
+  background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(255, 255, 255, 0.9); border-radius: 12px;
+  box-shadow: inset 0 1px 2px rgba(26, 38, 60, 0.06), 0 0 0 0.5px rgba(26, 38, 60, 0.06);
+}
+.page textarea { border-radius: 16px; }
+.input:focus, .page input:focus, .page textarea:focus { border-color: rgba(11, 158, 67, 0.55); box-shadow: 0 0 0 4px rgba(11, 158, 67, 0.12); }
+.menu { border-radius: 16px; background: rgba(255, 255, 255, 0.86); }
+.menu li { border-radius: 10px; }
+.menu li.hi { background: rgba(11, 158, 67, 0.08); }
+.chip { background: rgba(255, 255, 255, 0.62); border: 1px solid var(--glass-edge); box-shadow: var(--rim); }
+.chip.add { background: rgba(255, 255, 255, 0.35); border: 1px dashed rgba(26, 38, 60, 0.15); box-shadow: none; }
+.toggle { background: rgba(26, 38, 60, 0.12); box-shadow: inset 0 1px 2px rgba(26, 38, 60, 0.12); width: 42px; height: 26px; border-radius: 13px; }
+.toggle i { width: 22px; height: 22px; top: 2px; left: 2px; box-shadow: 0 2px 6px rgba(26, 38, 60, 0.22), inset 0 -1px 1px rgba(26, 38, 60, 0.05); }
+.toggle.on { background: linear-gradient(180deg, #22bd61, #0b9e43); }
+.toggle.on i { transform: translateX(16px); }
+.keycap { background: rgba(255, 255, 255, 0.8); border: 1px solid var(--glass-edge); border-radius: 8px; box-shadow: var(--rim), 0 1px 2px rgba(26, 38, 60, 0.12); }
+.banner { border-radius: 16px; background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); border: 1px solid var(--glass-edge); box-shadow: var(--rim); }
+.banner.ok { background: rgba(11, 158, 67, 0.10); color: var(--green); }
+.banner.warn { background: rgba(240, 170, 40, 0.14); }
+.banner.err { background: rgba(196, 55, 47, 0.10); }
+.bar-prog { background: rgba(26, 38, 60, 0.08); }
+.setup { background: transparent; }
+.setup-card { border-radius: 30px; }
+.perm, .pick li { background: rgba(255, 255, 255, 0.5); border: 1px solid var(--glass-edge); box-shadow: var(--rim); }
+.pick li.active { background: rgba(11, 158, 67, 0.10); border-color: rgba(11, 158, 67, 0.3); }
+.trybox { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--glass-edge); border-radius: 16px; }
+
+/* the dictation bar becomes a glass capsule */
+.dbar, .xcard {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.72));
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: var(--rim), 0 14px 38px -12px rgba(26, 38, 60, 0.30), 0 3px 8px -3px rgba(26, 38, 60, 0.12);
+}
+.dbar { border-radius: 26px; height: 54px; }
+.xcard { border-radius: 28px; }
+.xcard .dbar-row, .xbody, .xfoot { border-color: var(--glass-line); }
+.xfoot .esc { background: rgba(26, 38, 60, 0.06); border-radius: 999px; padding: 6px 12px; }
+.xfoot .ins { border-radius: 999px; background: rgba(11, 158, 67, 0.12); }
+html.overlay .ov { padding-bottom: 16px; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .side, .rows, .history, .models, .card, .feature, .setup-card { background: rgba(255, 255, 255, 0.92); }
+}

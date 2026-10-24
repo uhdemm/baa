@@ -62,6 +62,12 @@ pub(crate) fn open_main(app: &AppHandle, page: Option<&str>) {
         .title("Baa")
         // the design system is light-only; keep the title bar matching it
         .theme(Some(tauri::Theme::Light))
+        // Windows 11 Mica: the wallpaper glows softly through the window, always in its light tint
+        .transparent(true)
+        .effects(tauri::utils::config::WindowEffectsConfig {
+            effects: vec![tauri::window::Effect::MicaLight],
+            ..Default::default()
+        })
         .inner_size(980.0, 680.0)
         .min_inner_size(760.0, 520.0)
         .center()
