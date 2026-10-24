@@ -7,9 +7,24 @@ export interface Replacement { from: string; to: string }
 export interface Snippet { trigger: string; text: string }
 export interface AppProfile { exe: string; auto_send: AutoSend | null; style: string | null }
 
+export interface AiSettings {
+  cleanup: boolean;
+  provider: "anthropic" | "openai" | "ollama" | "custom";
+  base_url: string;
+  model: string;
+  prompt: string;
+  timeout_secs: number;
+}
+
 export interface Settings {
   shortcut: string;
   mode: Mode;
+  command_shortcut: string;
+  repaste_shortcut: string;
+  live_preview: boolean;
+  ai: AiSettings;
+  learn_words: boolean;
+  word_suggestions: string[];
   model: string | null;
   imported_models: string[];
   language: string | null;
@@ -73,6 +88,8 @@ export interface DownloadProgress {
   error: string | null;
 }
 
+export interface AiStatus { ready: boolean; keys: string[] }
+
 export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   setSettings: (settings: Settings) => invoke<Settings>("set_settings", { settings }),
@@ -90,6 +107,11 @@ export const api = {
   stats: () => invoke<Stats>("stats"),
   repasteLast: () => invoke<void>("repaste_last"),
   previewText: (raw: string) => invoke<string>("preview_text", { raw }),
+  micTestStart: () => invoke<void>("mic_test_start"),
+  micTestStop: () => invoke<void>("mic_test_stop"),
+  aiStatus: () => invoke<AiStatus>("ai_status"),
+  setApiKey: (provider: string, key: string) => invoke<void>("set_api_key", { provider, key }),
+  testAi: (sample: string) => invoke<string>("test_ai", { sample }),
 };
 
 export const fmtSize = (b: number) =>

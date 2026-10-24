@@ -22,6 +22,22 @@ export default function Words({ settings, save }: PageProps) {
     <>
       <h1>Words</h1>
 
+      {settings.word_suggestions.length > 0 && (
+        <section>
+          <h2>Words you corrected</h2>
+          <p className="muted">You fixed these after Baa pasted them. Add them so Baa spells them your way next time.</p>
+          <div className="chips">
+            {settings.word_suggestions.map((w) => (
+              <span key={w} className="chip">
+                {w}
+                <button title="Add" onClick={() => save({ ...settings, custom_words: [...settings.custom_words, w], word_suggestions: settings.word_suggestions.filter((x) => x !== w) })}>+</button>
+                <button title="Dismiss" onClick={() => save({ ...settings, word_suggestions: settings.word_suggestions.filter((x) => x !== w) })}>×</button>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2>Custom words</h2>
         <p className="muted">Names and terms the model should spell your way (works best with Parakeet and Canary).</p>

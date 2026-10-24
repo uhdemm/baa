@@ -40,6 +40,42 @@ pub fn paste(text: &str, send: AutoSend, restore_clipboard: bool) -> anyhow::Res
     Ok(())
 }
 
+/// Copies the focused app's selection (Ctrl+C) without losing the user's clipboard.
+/// Returns None when nothing is selected.
+pub fn copy_selection() -> anyhow::Result<Option<String>> {
+    let mut cb = arboard::Clipboard::new()?;
+    let previous = cb.get_text().ok();
+    let marker = format!("\u{2063}baa-{}", std::process::id());
+    cb.set_text(marker.clone())?;
+    let mut kb = Enigo::new(&enigo::Settings::default())?;
+    for k in [Key::Shift, Key::Alt, Key::Meta] {
+        let _ = kb.key(k, Direction::Release);
+    }
+    kb.key(Key::Control, Direction::Press)?;
+    kb.key(Key::Unicode('c'), Direction::Click)?;
+    kb.key(Key::Control, Direction::Release)?;
+    let mut got = None;
+    for _ in 0..10 {
+        sleep(Duration::from_millis(30));
+        match cb.get_text() {
+            Ok(t) if t != marker => {
+                got = Some(t);
+                break;
+            }
+            _ => {}
+        }
+    }
+    match previous {
+        Some(p) => {
+            let _ = cb.set_text(p);
+        }
+        None => {
+            let _ = cb.clear();
+        }
+    }
+    Ok(got.filter(|t| !t.trim().is_empty()))
+}
+
 /// Exe name of the app that has keyboard focus, lowercased (e.g. "discord.exe").
 #[cfg(windows)]
 pub fn focused_app() -> Option<String> {

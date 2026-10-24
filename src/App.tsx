@@ -6,12 +6,15 @@ import Models from "./pages/Models";
 import Words from "./pages/Words";
 import Apps from "./pages/Apps";
 import Prefs from "./pages/Prefs";
+import Ai from "./pages/Ai";
+import Setup from "./pages/Setup";
 
 const PAGES = [
   { id: "home", label: "Home" },
   { id: "models", label: "Models" },
   { id: "words", label: "Words" },
   { id: "apps", label: "Apps" },
+  { id: "ai", label: "AI" },
   { id: "settings", label: "Settings" },
 ] as const;
 type PageId = (typeof PAGES)[number]["id"];
@@ -52,6 +55,7 @@ export default function App() {
 
   if (!settings) return null;
   const props = { settings, save };
+  if (!settings.onboarded) return <Setup {...props} />;
 
   return (
     <div className="shell">
@@ -72,6 +76,7 @@ export default function App() {
         {page === "models" && <Models {...props} />}
         {page === "words" && <Words {...props} />}
         {page === "apps" && <Apps {...props} />}
+        {page === "ai" && <Ai {...props} />}
         {page === "settings" && <Prefs {...props} />}
       </main>
     </div>

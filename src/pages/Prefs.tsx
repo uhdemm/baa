@@ -63,6 +63,12 @@ export default function Prefs({ settings, save }: PageProps) {
         <label>Shortcut</label>
         <ShortcutInput value={settings.shortcut} onChange={(v) => set("shortcut", v)} />
 
+        <label>Command mode</label>
+        <ShortcutInput value={settings.command_shortcut} onChange={(v) => set("command_shortcut", v)} />
+
+        <label>Paste last again</label>
+        <ShortcutInput value={settings.repaste_shortcut} onChange={(v) => set("repaste_shortcut", v)} />
+
         <label>How it listens</label>
         <select value={settings.mode} onChange={(e) => set("mode", e.target.value as Mode)}>
           <option value="hybrid">Hold to talk, or tap once to start and again to stop</option>
@@ -109,6 +115,8 @@ export default function Prefs({ settings, save }: PageProps) {
         <label>Options</label>
         <div className="checks">
           <Check v={settings.show_overlay} on={(v) => set("show_overlay", v)}>Show the bar while I talk</Check>
+          <Check v={settings.live_preview} on={(v) => set("live_preview", v)}>Show my words in the bar as I speak</Check>
+          <Check v={settings.learn_words} on={(v) => set("learn_words", v)}>Learn words I correct after pasting</Check>
           <Check v={settings.remove_fillers} on={(v) => set("remove_fillers", v)}>Remove "um" and "uh"</Check>
           <Check v={settings.trailing_space} on={(v) => set("trailing_space", v)}>Add a space after each dictation</Check>
           <Check v={settings.restore_clipboard} on={(v) => set("restore_clipboard", v)}>Put my clipboard back after pasting</Check>

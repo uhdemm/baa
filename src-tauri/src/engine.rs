@@ -159,6 +159,22 @@ impl Engine {
     }
 }
 
+impl Engine {
+    /// Quick look at the words so far, for the live preview. Never waits: if the
+    /// model is still loading or busy, it just skips this round.
+    pub fn preview(&self, path: &Path, pcm: &[f32], language: Option<String>) -> Option<String> {
+        if pcm.len() < 8000 {
+            return None;
+        }
+        let mut slot = self.loaded.try_lock()?;
+        let l = slot.as_mut().filter(|l| l.path == path)?;
+        let opts = RunOptions { language, ..Default::default() };
+        let text = l.session.run(pcm, &opts).ok()?.text.trim().to_string();
+        *self.last_used.lock() = Instant::now();
+        Some(text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

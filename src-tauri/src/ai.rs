@@ -1,0 +1,156 @@
+//! Optional AI pass: clean up a dictation, or rewrite selected text by voice
+//! (command mode). Works with Claude, OpenAI, a local Ollama, or any
+//! OpenAI-compatible server. API keys live in Windows Credential Manager.
+
+use crate::settings::AiSettings;
+use serde_json::{json, Value};
+use std::time::Duration;
+
+const KEYRING_SERVICE: &str = "rip.baa.app";
+
+pub fn set_key(provider: &str, key: &str) -> anyhow::Result<()> {
+    let e = keyring::Entry::new(KEYRING_SERVICE, provider)?;
+    if key.is_empty() {
+        let _ = e.delete_credential();
+    } else {
+        e.set_password(key)?;
+    }
+    Ok(())
+}
+
+pub fn get_key(provider: &str) -> Option<String> {
+    keyring::Entry::new(KEYRING_SERVICE, provider).ok()?.get_password().ok()
+}
+
+pub fn has_key(provider: &str) -> bool {
+    get_key(provider).is_some()
+}
+
+/// Whether the configured provider can run (local servers need no key).
+pub fn ready(ai: &AiSettings) -> bool {
+    match ai.provider.as_str() {
+        "ollama" => true,
+        "custom" => !ai.base_url.trim().is_empty(),
+        p => has_key(p),
+    }
+}
+
+fn base_url(ai: &AiSettings) -> String {
+    let b = ai.base_url.trim().trim_end_matches('/');
+    match (ai.provider.as_str(), b.is_empty()) {
+        (_, false) => b.to_string(),
+        ("anthropic", true) => "https://api.anthropic.com".into(),
+        ("openai", true) => "https://api.openai.com/v1".into(),
+        ("ollama", true) => "http://localhost:11434/v1".into(),
+        _ => String::new(),
+    }
+}
+
+/// One request/response round with the configured model.
+pub fn complete(ai: &AiSettings, system: &str, user: &str) -> anyhow::Result<String> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(ai.timeout_secs.max(2))).build()?;
+    let url = base_url(ai);
+    let model = ai.model.trim().to_string();
+    if model.is_empty() {
+        anyhow::bail!("Choose a model in Settings > AI");
+    }
+    tauri::async_runtime::block_on(async move {
+        if ai.provider == "anthropic" {
+            let key = get_key("anthropic").ok_or_else(|| anyhow::anyhow!("Add your Anthropic API key in Settings > AI"))?;
+            // Fast, short job: low effort keeps latency down. "default" fallbacks reroute a declined request.
+            let body = json!({
+                "model": model,
+                "max_tokens": 4096,
+                "system": system,
+                "messages": [{"role": "user", "content": user}],
+                "output_config": {"effort": "low"},
+                "fallbacks": "default",
+            });
+            let resp = client
+                .post(format!("{url}/v1/messages"))
+                .header("x-api-key", key)
+                .header("anthropic-version", "2023-06-01")
+                .header("anthropic-beta", "server-side-fallback-2026-07-01")
+                .json(&body)
+                .send()
+                .await?;
+            let status = resp.status();
+            let v: Value = resp.json().await?;
+            if !status.is_success() {
+                anyhow::bail!("Claude: {}", v["error"]["message"].as_str().unwrap_or(status.as_str()));
+            }
+            if v["stop_reason"] == "refusal" {
+                anyhow::bail!("Claude declined this one");
+            }
+            // thinking blocks may come first; join the text blocks
+            let text: String = v["content"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|b| b["type"] == "text")
+                .filter_map(|b| b["text"].as_str())
+                .collect();
+            Ok(text.trim().to_string())
+        } else {
+            let mut req = client.post(format!("{url}/chat/completions")).json(&json!({
+                "model": model,
+                "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+            }));
+            if let Some(key) = get_key(&ai.provider) {
+                req = req.bearer_auth(key);
+            }
+            let resp = req.send().await?;
+            let status = resp.status();
+            let v: Value = resp.json().await?;
+            if !status.is_success() {
+                anyhow::bail!("AI: {}", v["error"]["message"].as_str().unwrap_or(status.as_str()));
+            }
+            Ok(v["choices"][0]["message"]["content"].as_str().unwrap_or_default().trim().to_string())
+        }
+    })
+}
+
+/// Dictation clean-up. Falls back to the original text on any failure so a slow
+/// or offline AI never eats what you said.
+pub fn cleanup(ai: &AiSettings, text: &str, app: Option<&str>, custom_words: &[String]) -> Result<String, String> {
+    let mut system = ai.prompt.clone();
+    if let Some(a) = app {
+        system.push_str(&format!("\n\nThe text will be pasted into {a}; match what fits there."));
+    }
+    if !custom_words.is_empty() {
+        system.push_str(&format!("\n\nSpell these the way they are written here: {}.", custom_words.join(", ")));
+    }
+    let user = format!("<dictation>\n{text}\n</dictation>");
+    match complete(ai, &system, &user) {
+        Ok(out) if !out.is_empty() => Ok(strip_wrapper(&out)),
+        Ok(_) => Err("AI returned nothing".into()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Command mode: apply a spoken instruction to the selected text (or write new text).
+pub fn command(ai: &AiSettings, instruction: &str, selection: Option<&str>) -> anyhow::Result<String> {
+    let system = "You edit text for the user, who speaks instructions out loud. Follow the instruction and reply \
+        with only the resulting text, ready to paste: no explanations, no quotes, no markdown fences.";
+    let user = match selection {
+        Some(sel) => format!("Instruction: {instruction}\n\n<text>\n{sel}\n</text>"),
+        None => format!("Instruction (no text is selected, so write new text): {instruction}"),
+    };
+    let out = complete(ai, system, &user)?;
+    if out.is_empty() {
+        anyhow::bail!("AI returned nothing");
+    }
+    Ok(strip_wrapper(&out))
+}
+
+/// Models sometimes echo the wrapper tags back.
+fn strip_wrapper(s: &str) -> String {
+    let mut t = s.trim();
+    for tag in ["dictation", "text"] {
+        let (open, close) = (format!("<{tag}>"), format!("</{tag}>"));
+        if t.starts_with(&open) && t.ends_with(&close) {
+            t = t[open.len()..t.len() - close.len()].trim();
+        }
+    }
+    t.to_string()
+}

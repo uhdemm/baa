@@ -67,3 +67,17 @@ textarea { width: 100%; min-height: 34px; resize: vertical; }
 .check { display: flex; gap: 8px; align-items: center; }
 .shortcut { background: var(--panel); color: var(--ink); border-color: var(--line); font-family: ui-monospace, Consolas, monospace; text-align: left; }
 .shortcut.capturing { border-color: var(--ink); }
+.banner.warn { border-color: #b7791f; }
+.banner.ok { border-color: #1f8a4c; color: #1f8a4c; }
+textarea.prompt { min-height: 130px; }
+.setup { max-width: 640px; margin: 0 auto; padding: 36px 24px; }
+.steps { display: flex; gap: 16px; color: var(--soft); font-size: 13px; margin-bottom: 18px; }
+.steps .on { color: var(--ink); font-weight: 700; }
+.steps .done { text-decoration: line-through; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+.card select { width: 100%; }
+.level { height: 12px; background: var(--line); border-radius: 6px; overflow: hidden; margin: 6px 0 16px; }
+.level i { display: block; height: 100%; background: var(--ink); transition: width 60ms linear; }
+.row.end { justify-content: flex-end; margin-top: 18px; }
+.trybox { min-height: 90px; margin-top: 8px; }
+button:disabled { opacity: .45; cursor: default; }

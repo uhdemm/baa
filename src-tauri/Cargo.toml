@@ -37,8 +37,10 @@ transcribe-cpp = { version = "0.4.0", default-features = false, features = ["ser
 arboard = "3"
 enigo = "0.6"
 rusqlite = { version = "0.37", features = ["bundled"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream", "json"] }
 futures-util = "0.3"
+# API keys go in Windows Credential Manager, not a plain file
+keyring = { version = "3", features = ["windows-native"] }
 
 [target.'cfg(windows)'.dependencies]
 transcribe-cpp = { version = "0.4.0", default-features = false, features = ["serde", "vulkan"] }
@@ -47,6 +49,10 @@ windows = { version = "0.61", features = [
   "Win32_System_Threading",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Accessibility",
+  "Win32_System_Com",
+  "Win32_System_Ole",
+  "Win32_System_Variant",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

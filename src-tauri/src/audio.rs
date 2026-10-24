@@ -15,6 +15,8 @@ pub type LevelFn = Arc<dyn Fn(f32) + Send + Sync>;
 enum Cmd {
     Start { device: Option<String>, reply: Sender<anyhow::Result<()>> },
     Stop { reply: Sender<Vec<f32>> },
+    /// copy of everything recorded so far, at 16 kHz (for live words)
+    Snapshot { reply: Sender<Vec<f32>> },
     Cancel,
 }
 
@@ -58,6 +60,16 @@ impl Recorder {
                             };
                             let _ = reply.send(out);
                         }
+                        Cmd::Snapshot { reply } => {
+                            let out = match &stream {
+                                Some((_, r)) => {
+                                    let copy = buf.lock().clone();
+                                    resample(&copy, *r)
+                                }
+                                None => vec![],
+                            };
+                            let _ = reply.send(out);
+                        }
                         Cmd::Cancel => {
                             stream = None;
                             buf.lock().clear();
@@ -82,6 +94,14 @@ impl Recorder {
             return vec![];
         }
         rx.recv_timeout(Duration::from_secs(10)).unwrap_or_default()
+    }
+
+    pub fn snapshot(&self) -> Vec<f32> {
+        let (reply, rx) = channel();
+        if self.tx.send(Cmd::Snapshot { reply }).is_err() {
+            return vec![];
+        }
+        rx.recv_timeout(Duration::from_secs(2)).unwrap_or_default()
     }
 
     pub fn cancel(&self) {
