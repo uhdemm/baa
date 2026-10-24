@@ -6,7 +6,7 @@ const settings = {
   appearance: { material: "glass", thickness: 2, tint: "#ffffff", tint_strength: 0, accent: "#0d6fff", roundness: 1, wallpaper_through: true, bar_size: "regular", show_face: true }, word_suggestions: ["Remotion"],
   ai: { cleanup: false, provider: "groq", base_url: "", model: "llama-3.3-70b-versatile", prompt: "You clean up dictated text.", timeout_secs: 6 },
   model: "parakeet-tdt-0.6b-v3", imported_models: [], language: null, microphone: null, auto_send: "off",
-  restore_clipboard: true, trailing_space: true, remove_fillers: true, use_vad: true,
+  restore_clipboard: true, rich_paste: true, trailing_space: true, remove_fillers: true, use_vad: true,
   custom_words: ["Big Square", "Baa"], replacements: [{ from: "big square", to: "Big Square" }],
   snippets: [{ trigger: "my email", text: "adam@example.com" }], app_profiles: [{ exe: "discord.exe", auto_send: "enter", style: "lowercase" }],
   unload_after_secs: 300, overlay_position: "bottom", show_overlay: true, sounds: true, character: "sheep",

@@ -139,6 +139,8 @@ pub struct Settings {
     pub microphone: Option<String>,
     pub auto_send: AutoSend,
     pub restore_clipboard: bool,
+    /// Paste real bullet lists and paragraphs into apps that support rich text.
+    pub rich_paste: bool,
     pub trailing_space: bool,
     pub remove_fillers: bool,
     pub use_vad: bool,
@@ -173,6 +175,7 @@ impl Default for Settings {
             microphone: None,
             auto_send: AutoSend::Off,
             restore_clipboard: true,
+            rich_paste: true,
             trailing_space: true,
             remove_fillers: true,
             use_vad: true,

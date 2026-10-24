@@ -126,6 +126,9 @@ export default function Prefs({ settings, save }: PageProps) {
           <Row title="Add a space after" desc="So the next dictation doesn't run into the last one.">
             <Toggle on={settings.trailing_space} onChange={(v) => set("trailing_space", v)} />
           </Row>
+          <Row title="Real bullet lists" desc="In Word, Outlook, Gmail, Docs and Notion, lists and paragraphs paste formatted, like you typed them.">
+            <Toggle on={settings.rich_paste} onChange={(v) => set("rich_paste", v)} />
+          </Row>
           <Row title="Keep my clipboard" desc="Puts back whatever you had copied.">
             <Toggle on={settings.restore_clipboard} onChange={(v) => set("restore_clipboard", v)} />
           </Row>

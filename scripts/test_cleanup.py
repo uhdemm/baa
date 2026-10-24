@@ -22,6 +22,7 @@ def key():
 
 
 CASES = [
+    ("WINWORD.EXE: Document1", "jonah wants me to make a roblox game for him he wants to go work on the namecheap thing and buy this new domain that he wants i think its like nyx dot com or something ask gemini to make the prompt for the game clean the windows fix the house do some other bullshit fix his pc he has thirty two gigs of ram we need to switch it to sixty four upgrade his gpu the fifty ninety is ten thousand dollars right now so we need to go find a deal on ebay put spongebob in the game as well"),
     ("outlook.exe: Re: Friday shoot", "hi jona so um i talked to brad and we're good for friday the shoot starts at nine thirty am at the studio can you bring the two softboxes and the tripod oh and the sd cards um let me know if anything changes thanks adam"),
     ("discord.exe: #big-square", "yo did anybody render the no caff thing yet cause i need it by like tonight no wait tomorrow morning is fine"),
     ("notion.exe: Launch plan", "okay so launch plan first we finish the installer then we test it on brads laptop then we make the landing page on baa dot rip and finally we post it on twitter and reddit"),

@@ -33,6 +33,7 @@ export interface Settings {
   microphone: string | null;
   auto_send: AutoSend;
   restore_clipboard: boolean;
+  rich_paste: boolean;
   trailing_space: boolean;
   remove_fillers: boolean;
   use_vad: boolean;

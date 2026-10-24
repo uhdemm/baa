@@ -7,9 +7,18 @@ use std::thread::sleep;
 use std::time::Duration;
 
 pub fn paste(text: &str, send: AutoSend, restore_clipboard: bool) -> anyhow::Result<()> {
+    paste_with_html(text, None, send, restore_clipboard)
+}
+
+/// Like `paste`, but also puts an HTML version on the clipboard so rich-text apps
+/// get real paragraphs and bullet lists (plain-text apps still get the text).
+pub fn paste_with_html(text: &str, html: Option<&str>, send: AutoSend, restore_clipboard: bool) -> anyhow::Result<()> {
     let mut cb = arboard::Clipboard::new()?;
     let previous = if restore_clipboard { cb.get_text().ok() } else { None };
-    cb.set_text(text.to_string())?;
+    match html {
+        Some(h) => cb.set_html(h, Some(text))?,
+        None => cb.set_text(text.to_string())?,
+    }
     sleep(Duration::from_millis(40));
 
     let mut kb = Enigo::new(&enigo::Settings::default())?;

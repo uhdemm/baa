@@ -234,10 +234,11 @@ fn dictate(
     model_id: &str,
 ) -> anyhow::Result<()> {
     let profile = focused.as_deref().and_then(|exe| s.app_profiles.iter().find(|p| p.exe.eq_ignore_ascii_case(exe)));
+    let title = paste::focused_title();
     let mut spoken = raw.clone();
     if s.ai.cleanup && ai::ready(&s.ai) {
         overlay_state(app, "think", Some("Polishing…".into()));
-        match ai::cleanup(&s.ai, &raw, focused.as_deref(), paste::focused_title().as_deref(), &s.custom_words) {
+        match ai::cleanup(&s.ai, &raw, focused.as_deref(), title.as_deref(), &s.custom_words) {
             Ok(t) => spoken = t,
             Err(e) => eprintln!("baa: AI cleanup skipped: {e}"), // paste what was said instead
         }
@@ -245,7 +246,8 @@ fn dictate(
     let out = text::process(&spoken, s, profile);
     let send = profile.and_then(|p| p.auto_send).unwrap_or(s.auto_send);
     overlay_state(app, "send", None);
-    paste::paste(&out, send, s.restore_clipboard).map_err(|e| anyhow::anyhow!("Couldn't paste: {e}"))?;
+    let html = if s.rich_paste && text::wants_rich_text(focused.as_deref(), title.as_deref()) { text::to_html(out.trim_end()) } else { None };
+    paste::paste_with_html(&out, html.as_deref(), send, s.restore_clipboard).map_err(|e| anyhow::anyhow!("Couldn't paste: {e}"))?;
     let _ = st.history.add(out.trim_end(), &raw, focused.as_deref(), text::word_count(&out), audio_ms, Some(model_id));
     let _ = app.emit("history-changed", ());
     if s.learn_words {
