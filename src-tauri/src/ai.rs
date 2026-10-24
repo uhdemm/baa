@@ -194,26 +194,32 @@ pub fn cleanup(ai: &AiSettings, text: &str, at: &Where, custom_words: &[String])
     }
 }
 
-const MEETING_PROMPT: &str = "You write meeting notes from a call transcript. Lines starting with \"Me:\" are the person \
-taking the notes; lines starting with \"Them:\" are everyone else on the call (it may be several people). The transcript \
-comes from speech recognition, so fix obvious mishearings from context.
+const MEETING_PROMPT: &str = include_str!("meeting_prompt.txt");
 
-Reply in plain text with this shape and nothing else:
-- First line: a short title for the meeting (3 to 7 words, no date, no quotes).
-- A blank line, then \"Summary\" on its own line and 2 to 4 sentences on what the meeting was about and where it ended up.
-- A blank line, then \"Decisions\" and one \"- \" line per decision. Leave the section out if nothing was decided.
-- A blank line, then \"Action items\" and one \"- \" line per task: who does it (Me, or a name if one was said), what, and by when if said. Leave it out if there are none.
-- A blank line, then \"Notes\" and \"- \" lines for the important details, numbers, names and dates worth keeping.
-
-Only write what was said. Do not invent names, dates or tasks. No markdown symbols other than \"- \" for list items.";
-
-/// Turns a meeting transcript into notes: title line first, then the sections.
-pub fn meeting_notes(ai: &AiSettings, transcript: &str) -> anyhow::Result<String> {
+/// Turns a meeting transcript into notes. With speaker labels the reply starts
+/// with a "SPEAKERS:" line naming them, then the title, then the sections.
+pub fn meeting_notes(ai: &AiSettings, transcript: &str, attendees: &str, my_notes: &str, template: &str) -> anyhow::Result<String> {
     // a long meeting needs more time than a dictation
     let mut ai = ai.clone();
-    ai.timeout_secs = ai.timeout_secs.max(90);
-    let out = complete(&ai, MEETING_PROMPT, &format!("<transcript>\n{transcript}\n</transcript>"))?;
-    Ok(strip_wrapper(&out))
+    ai.timeout_secs = ai.timeout_secs.max(120);
+    let template = if template.is_empty() { "general" } else { template };
+    let user = format!(
+        "<template>{template}</template>\n<attendees>{}</attendees>\n<my_notes>\n{}\n</my_notes>\n<transcript>\n{transcript}\n</transcript>",
+        if attendees.trim().is_empty() { "not given" } else { attendees.trim() },
+        my_notes.trim()
+    );
+    Ok(strip_wrapper(&complete(&ai, MEETING_PROMPT, &user)?))
+}
+
+/// Answers a question about one note or meeting, using only what is in it.
+pub fn ask_note(ai: &AiSettings, title: &str, body: &str, question: &str) -> anyhow::Result<String> {
+    let mut ai = ai.clone();
+    ai.timeout_secs = ai.timeout_secs.max(60);
+    let system = "You answer questions about one note or meeting. Use only what is in it; if the answer isn't there, \
+        say so in one sentence. When asked to write something (an email, a message, a summary), write it ready to send, \
+        in the user's voice, with no preamble. Plain text; \"- \" for lists, no other markdown.";
+    let user = format!("<note title=\"{title}\">\n{body}\n</note>\n\n{question}");
+    Ok(strip_wrapper(&complete(&ai, system, &user)?))
 }
 
 /// Command mode: apply a spoken instruction to the selected text (or write new text).

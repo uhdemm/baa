@@ -372,3 +372,28 @@ html.overlay, html.overlay body { background: transparent !important; overflow: 
 .page input.note-title, input.note-title { border: 0; box-shadow: none; background: none; font-size: 20px; font-weight: 700; letter-spacing: -0.4px; padding: 8px 0 4px; height: auto; width: 100%; outline: 0; }
 .page textarea.note-body, textarea.note-body { flex: 1; border: 0; box-shadow: none; background: none; resize: none; font: inherit; line-height: 19px; padding: 4px 0; min-height: 300px; outline: 0; }
 .page input.note-title:focus, .page textarea.note-body:focus { box-shadow: none; }
+
+/* ---------- meeting setup, live notes, speakers, ask ---------- */
+.meet { display: grid; gap: 8px; }
+.meet.live .meet-card { background: rgba(255, 56, 60, 0.07); }
+.meet-setup { display: flex; gap: 8px; }
+.meet-setup .input { flex: 1; }
+.meet-hint { padding: 0 2px; }
+.meet-hint b { color: var(--l1); font-weight: 600; }
+button.link { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; cursor: default; }
+button.link:hover { text-decoration: underline; }
+.meet-live-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.page textarea.meet-mine, textarea.meet-mine { min-height: 140px; resize: vertical; font: inherit; line-height: 18px; }
+.meet-live { margin: 0; max-height: 140px; overflow: hidden; }
+.renames { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 0 8px; border-bottom: 1px solid var(--sep); margin-bottom: 4px; }
+.renames .hint { width: 100%; }
+.rename { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+.page .rename input, .rename input { width: 110px; height: 22px; font-size: 12px; }
+.ask { border-top: 1px solid var(--sep); padding-top: 10px; display: grid; gap: 8px; }
+.ask-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.answer { background: var(--fill); border-radius: calc(10px * var(--r)); padding: 10px 12px; display: grid; gap: 6px; }
+.answer-q { font-weight: 600; font-size: 12px; color: var(--l2); }
+.answer p { white-space: pre-wrap; line-height: 18px; max-height: 220px; overflow: auto; }
+.answer-acts { display: flex; gap: 4px; }
+button.chip { border: 0; padding: 0 10px; cursor: default; color: var(--l1); }
+button.chip:hover { background: rgba(0, 0, 0, 0.08); }

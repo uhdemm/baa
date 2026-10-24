@@ -167,6 +167,18 @@
    "size": 252684608,
    "sha256": "6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29",
    "license": "other"
+  },
+  {
+   "id": "sortformer-4spk",
+   "name": "Speaker detection",
+   "description": "Tells up to 4 people apart in meeting notes, even when they talk over each other. NVIDIA Sortformer.",
+   "tier": "speakers",
+   "repo": "handy-computer/diar_streaming_sortformer_4spk-v2.1-gguf",
+   "revision": "60ebab3ef7cae9869be0abcde13360347e96ba03",
+   "filename": "diar_streaming_sortformer_4spk-v2.1-Q8_0.gguf",
+   "size": 139310336,
+   "sha256": "a5dacdc650790266c7a362e54e6bf51952015487edaa606c4e11632bc32442a9",
+   "license": "other"
   }
  ],
  "vad": null

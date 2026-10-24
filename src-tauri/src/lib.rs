@@ -2,6 +2,7 @@
 
 mod ai;
 mod audio;
+mod echo;
 mod engine;
 mod history;
 mod keyhook;
@@ -347,6 +348,24 @@ fn meeting_status(st: S) -> meeting::MeetingStatus {
     st.meeting.status()
 }
 
+#[tauri::command]
+fn meeting_update(st: S, attendees: String, my_notes: String, template: String) {
+    st.meeting.update(attendees, my_notes, template);
+}
+
+/// "Draft a follow-up email", "what did I promise?"... about one note.
+#[tauri::command]
+async fn note_ask(st: S<'_>, title: String, body: String, question: String) -> Result<String, String> {
+    let ai_settings = st.settings.get().ai;
+    if !ai::ready(&ai_settings) {
+        return Err("Set up AI in Settings first".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || ai::ask_note(&ai_settings, &title, &body, &question))
+        .await
+        .map_err(err)?
+        .map_err(err)
+}
+
 // ---------- startup ----------
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -470,7 +489,9 @@ pub fn run() {
             note_delete,
             meeting_start,
             meeting_stop,
-            meeting_status
+            meeting_status,
+            meeting_update,
+            note_ask
         ])
         .build(tauri::generate_context!())
         .expect("error while building Baa")

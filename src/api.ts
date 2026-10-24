@@ -95,7 +95,11 @@ export interface Stats {
 
 export interface Note { id: number; created: number; updated: number; title: string; body: string; kind: "note" | "meeting" }
 
-export interface MeetingStatus { running: boolean; finishing: boolean; seconds: number; transcript: string; hears_call: boolean }
+export type Template = "general" | "one_on_one" | "sales" | "standup" | "interview";
+export interface MeetingStatus {
+  running: boolean; finishing: boolean; stage: string; seconds: number; transcript: string;
+  hears_call: boolean; speakers: boolean; attendees: string; my_notes: string; template: Template;
+}
 
 export interface EngineStatus { loaded: string | null; loading: boolean; backend: string | null }
 
@@ -141,6 +145,9 @@ export const api = {
   meetingStart: () => invoke<void>("meeting_start"),
   meetingStop: () => invoke<void>("meeting_stop"),
   meetingStatus: () => invoke<MeetingStatus>("meeting_status"),
+  meetingUpdate: (attendees: string, myNotes: string, template: Template) =>
+    invoke<void>("meeting_update", { attendees, myNotes, template }),
+  noteAsk: (title: string, body: string, question: string) => invoke<string>("note_ask", { title, body, question }),
 };
 
 export const fmtSize = (b: number) =>

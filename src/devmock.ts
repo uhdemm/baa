@@ -22,10 +22,10 @@ const data: Record<string, unknown> = {
     top_apps: [["discord.exe", 1820], ["notion.exe", 1104], ["chrome.exe", 640]] },
   notes_list: [
     { id: 2, created: now - 7200, updated: now - 7000, kind: "meeting", title: "Friday shoot plan with Brad",
-      body: "Summary\nBrad and Adam locked the Friday shoot at the studio, 9:30 AM start.\n\nAction items\n- Me: bring the two softboxes, tripod and SD cards\n- Brad: confirm the talent by Thursday\n\nTranscript\nThem: so are we good for friday\nMe: yeah nine thirty at the studio" },
+      body: "Summary\nBrad and Adam locked the Friday shoot at the studio, 9:30 AM start.\n\nAction items\n- Me: bring the two softboxes, tripod and SD cards\n- Brad: confirm the talent by Thursday\n\nTranscript\n[0:02] Speaker 1: so are we good for friday\n[0:05] Me: yeah nine thirty at the studio\n[0:09] Speaker 2: I can bring the lights" },
     { id: 1, created: now - 90000, updated: now - 86000, kind: "note", title: "Baa launch ideas", body: "Landing page on baa.rip\nPost on Twitter and Reddit" },
   ],
-  meeting_status: { running: location.search.includes("meeting"), finishing: false, seconds: 754, hears_call: true,
+  meeting_status: { running: location.search.includes("meeting"), finishing: false, stage: "", seconds: 754, hears_call: true, speakers: false, attendees: "Brad, Sarah", my_notes: "", template: "general",
     transcript: "Them: okay so where are we on the render\nMe: it's done, uploading it now\nThem: perfect, can you send the link to Brad too" },
   history_list: [
     { id: 3, ts: now - 40, text: "Just taking some notes on this idea. I think the new design is feeling really good.", raw: "", app: "notion.exe", words: 16, audio_ms: 5200, model: null },
@@ -42,6 +42,7 @@ const data: Record<string, unknown> = {
   list_ai_models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3-32b", "moonshotai/kimi-k2-instruct"],
   preview_text: "So send it to adam@example.com please ",
   "plugin:autostart|is_enabled": false,
+  note_ask: "Hi Brad,\n\nThanks for today. Quick recap: the shoot is Friday at 9:30 AM at the studio. I'll bring the softboxes, tripod and SD cards.\n\nAdam",
 };
 
 export function installDevMock() {

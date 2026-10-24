@@ -122,7 +122,7 @@ export function Combobox({ value, onChange, load, placeholder = "Choose…", wid
             {err && <li className="note err">{err}</li>}
             {items !== null && !err && shown.length === 0 && <li className="note">No models listed. Type a name to use it.</li>}
             {shown.map((m, i) => (
-              <li key={m} className={`${i === hi ? "hi" : ""} ${m === value ? "sel" : ""}`} onMouseEnter={() => setHi(i)}
+              <li key={`${i}-${m}`} className={`${i === hi ? "hi" : ""} ${m === value ? "sel" : ""}`} onMouseEnter={() => setHi(i)}
                 onMouseDown={(e) => { e.preventDefault(); pick(m); }}>
                 {m.startsWith("__custom__") ? <span>Use “{m.slice(10)}”</span> : <span>{m}</span>}
               </li>
@@ -140,7 +140,7 @@ export function Keycap({ children }: { children: ReactNode }) {
 
 /** Shows "Ctrl+Space" as keycaps. */
 export function Keys({ combo }: { combo: string }) {
-  return <span className="keys">{combo.split("+").map((k) => <Keycap key={k}>{k}</Keycap>)}</span>;
+  return <span className="keys">{combo.split("+").map((k, i) => <Keycap key={`${i}-${k}`}>{k}</Keycap>)}</span>;
 }
 
 /** A settings row: title + description on the left, control on the right. */

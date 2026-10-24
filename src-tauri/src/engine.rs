@@ -90,33 +90,42 @@ impl Engine {
         false
     }
 
-    /// Cuts silence out of the clip. Returns None when there's no speech at all.
-    fn trim_silence(&self, pcm: &[f32], threshold: f64) -> Option<Vec<f32>> {
+    /// Where the speech is, as sample ranges. None when the VAD can't load.
+    pub fn speech_spans(&self, pcm: &[f32], threshold: f64) -> Option<Vec<(usize, usize)>> {
         let mut vad = self.vad.lock();
         if vad.is_none() {
             match Model::load(&self.vad_path).and_then(|m| m.vad_session()) {
                 Ok(s) => *vad = Some(s),
                 Err(e) => {
-                    eprintln!("baa: VAD unavailable ({e}), using the whole clip");
-                    return Some(pcm.to_vec());
+                    eprintln!("baa: VAD unavailable ({e})");
+                    return None;
                 }
             }
         }
         let opts = VadOptions { threshold, speech_pad_ms: 200, min_silence_ms: 300, ..Default::default() };
-        let res = match vad.as_mut().unwrap().run(pcm, &opts) {
-            Ok(r) => r,
+        match vad.as_mut().unwrap().run(pcm, &opts) {
+            Ok(r) => Some(
+                r.segments
+                    .iter()
+                    .map(|seg| ((seg.start_sample.max(0) as usize).min(pcm.len()), (seg.end_sample.max(0) as usize).min(pcm.len())))
+                    .filter(|(a, b)| b > a)
+                    .collect(),
+            ),
             Err(e) => {
                 eprintln!("baa: VAD failed ({e})");
-                return Some(pcm.to_vec());
+                None
             }
-        };
-        if res.segments.is_empty() {
+        }
+    }
+
+    /// Cuts silence out of the clip. Returns None when there's no speech at all.
+    fn trim_silence(&self, pcm: &[f32], threshold: f64) -> Option<Vec<f32>> {
+        let Some(spans) = self.speech_spans(pcm, threshold) else { return Some(pcm.to_vec()) };
+        if spans.is_empty() {
             return None;
         }
         let mut out = Vec::with_capacity(pcm.len());
-        for seg in res.segments {
-            let a = (seg.start_sample.max(0) as usize).min(pcm.len());
-            let b = (seg.end_sample.max(0) as usize).min(pcm.len());
+        for (a, b) in spans {
             out.extend_from_slice(&pcm[a..b]);
             out.extend(std::iter::repeat(0.0).take(1600)); // 0.1 s gap between pieces
         }

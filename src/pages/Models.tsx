@@ -10,6 +10,7 @@ const TIERS: [string, string, string][] = [
   ["great", "Great with a graphics card", "More accurate, a little heavier."],
   ["light", "Light", "For older or slower PCs."],
   ["more", "More models", "Bigger or more specialised."],
+  ["speakers", "Meeting speakers", "An add-on for meeting notes: works out who said what. Not a dictation model."],
   ["imported", "Your imported models", "Files you added yourself."],
 ];
 
@@ -71,7 +72,7 @@ export default function Models({ settings, save }: PageProps) {
                 return (
                   <li key={m.id}>
                     <div className="grow">
-                      <div><b>{m.name}</b><span className="size">{fmtSize(m.size)}</span> {active && <span className="tag">In use</span>}</div>
+                      <div><b>{m.name}</b><span className="size">{fmtSize(m.size)}</span> {(active || (m.tier === "speakers" && m.installed)) && <span className="tag">In use</span>}</div>
                       <p>{m.description}</p>
                       {busy && p && (
                         <>
@@ -80,7 +81,7 @@ export default function Models({ settings, save }: PageProps) {
                         </>
                       )}
                     </div>
-                    {m.installed && !active && <button className="btn soft" onClick={() => save({ ...settings, model: m.id })}>Use</button>}
+                    {m.installed && !active && m.tier !== "speakers" && <button className="btn soft" onClick={() => save({ ...settings, model: m.id })}>Use</button>}
                     {!m.installed && !busy && <button className="btn" onClick={() => download(m.id)}>Download</button>}
                     {busy && <button className="btn ghost" onClick={() => api.cancelDownload(m.id)}>Cancel</button>}
                     {m.installed && <button className="btn ghost" onClick={() => api.deleteModel(m.id).then(load)}>{m.imported ? "Remove" : "Delete"}</button>}
