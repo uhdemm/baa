@@ -116,7 +116,7 @@ pub fn list_inputs() -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn pick_device(name: Option<&str>) -> anyhow::Result<cpal::Device> {
+pub fn pick_device(name: Option<&str>) -> anyhow::Result<cpal::Device> {
     let host = cpal::default_host();
     if let Some(want) = name {
         if let Ok(devs) = host.input_devices() {
@@ -137,6 +137,17 @@ fn open_stream(
 ) -> anyhow::Result<(cpal::Stream, u32)> {
     let dev = pick_device(device)?;
     let cfg = dev.default_input_config()?;
+    open_on(&dev, cfg, buf, on_level)
+}
+
+/// Opens a capture stream on `dev`. For a speaker (output device) with its output
+/// config, Windows records what is playing (WASAPI loopback): meeting audio.
+pub fn open_on(
+    dev: &cpal::Device,
+    cfg: cpal::SupportedStreamConfig,
+    buf: Arc<Mutex<Vec<f32>>>,
+    on_level: LevelFn,
+) -> anyhow::Result<(cpal::Stream, u32)> {
     let rate = cfg.sample_rate().0;
     let channels = cfg.channels() as usize;
     let format = cfg.sample_format();
@@ -184,7 +195,7 @@ fn open_stream(
     Ok((stream, rate))
 }
 
-fn resample(input: &[f32], from: u32) -> Vec<f32> {
+pub fn resample(input: &[f32], from: u32) -> Vec<f32> {
     use rubato::{FftFixedIn, Resampler};
     if from == TARGET_RATE || input.is_empty() {
         return input.to_vec();

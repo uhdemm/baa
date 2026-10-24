@@ -17,12 +17,21 @@ export interface AiSettings {
   timeout_secs: number;
 }
 
+export type Style = "formal" | "casual" | "very_casual" | "excited";
+export interface Styles { email: Style; work_chat: Style; personal_chat: Style; other: Style }
+
 export interface Settings {
   shortcut: string;
   mode: Mode;
   command_shortcut: string;
   repaste_shortcut: string;
   live_preview: boolean;
+  mouse_button: "" | "mouse4" | "mouse5";
+  translate_to_english: boolean;
+  whisper_mode: boolean;
+  mute_while_dictating: boolean;
+  smart_continue: boolean;
+  styles: Styles;
   ai: AiSettings;
   appearance: Appearance;
   learn_words: boolean;
@@ -79,7 +88,14 @@ export interface Stats {
   words_week: number;
   streak_days: number;
   minutes_saved: number;
+  wpm: number;
+  daily: [string, number][];
+  top_apps: [string, number][];
 }
+
+export interface Note { id: number; created: number; updated: number; title: string; body: string; kind: "note" | "meeting" }
+
+export interface MeetingStatus { running: boolean; finishing: boolean; seconds: number; transcript: string; hears_call: boolean }
 
 export interface EngineStatus { loaded: string | null; loading: boolean; backend: string | null }
 
@@ -118,6 +134,13 @@ export const api = {
   testAi: (sample: string, context?: string) => invoke<string>("test_ai", { sample, context: context ?? null }),
   defaultCleanupPrompt: () => invoke<string>("default_cleanup_prompt"),
   listAiModels: () => invoke<string[]>("list_ai_models"),
+  historyExport: (path: string) => invoke<number>("history_export", { path }),
+  notesList: (query?: string) => invoke<Note[]>("notes_list", { query: query || null }),
+  noteSave: (id: number | null, title: string, body: string) => invoke<number>("note_save", { id, title, body }),
+  noteDelete: (id: number) => invoke<void>("note_delete", { id }),
+  meetingStart: () => invoke<void>("meeting_start"),
+  meetingStop: () => invoke<void>("meeting_stop"),
+  meetingStatus: () => invoke<MeetingStatus>("meeting_status"),
 };
 
 export const fmtSize = (b: number) =>

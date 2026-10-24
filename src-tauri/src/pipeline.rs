@@ -2,9 +2,9 @@
 //! release -> transcribe -> clean up -> paste. Command mode shares the same path
 //! but sends the spoken instruction and your selection to the AI instead.
 
-use crate::engine::Outcome;
+use crate::engine::{Opts, Outcome};
 use crate::settings::{AutoSend, Mode, Settings};
-use crate::{ai, keyhook, learn, open_main, overlay, paste, text, AppState};
+use crate::{ai, keyhook, learn, open_main, overlay, paste, quiet, text, AppState};
 use parking_lot::Mutex;
 use serde::Serialize;
 use std::sync::Arc;
@@ -127,6 +127,9 @@ fn start(app: &AppHandle, st: &Arc<AppState>, kind: Kind) {
         overlay::show(app, &s);
     }
     overlay_state(app, "listen", None);
+    if s.mute_while_dictating {
+        quiet::mute_others();
+    }
     if let Ok(sc) = ESCAPE.parse::<Shortcut>() {
         let _ = app.global_shortcut().register(sc);
     }
@@ -188,15 +191,28 @@ fn stop(app: &AppHandle, st: &Arc<AppState>) {
     };
     release_escape(app);
     let pcm = st.recorder.stop();
+    quiet::restore();
     overlay_state(app, "think", None);
 
     let (app, st) = (app.clone(), st.clone());
     std::thread::spawn(move || {
         let s = st.settings.get();
         let focused = paste::focused_app();
+        // read it now, while the target box still has focus and before we paste
+        let before = if s.smart_continue && kind == Kind::Dictate { learn::before_cursor(400) } else { None };
         let model_id = s.model.clone().unwrap_or_default();
         let result = match st.models.path_for(&model_id) {
-            Some(path) => st.engine.transcribe(&path, &pcm, s.use_vad, s.language.clone(), s.custom_words.clone()),
+            Some(path) => st.engine.transcribe(
+                &path,
+                &pcm,
+                &Opts {
+                    use_vad: s.use_vad,
+                    language: s.language.clone(),
+                    vocabulary: s.custom_words.clone(),
+                    translate: s.translate_to_english,
+                    whisper: s.whisper_mode,
+                },
+            ),
             None => Err(anyhow::anyhow!("The selected model file is missing")),
         };
         let raw = match result {
@@ -211,7 +227,7 @@ fn stop(app: &AppHandle, st: &Arc<AppState>) {
             }
         };
         let done = match kind {
-            Kind::Dictate => dictate(&app, &st, &s, raw, focused, audio_ms, &model_id),
+            Kind::Dictate => dictate(&app, &st, &s, raw, focused, before, audio_ms, &model_id),
             Kind::Command => command(&app, &st, &s, raw, focused, audio_ms, &model_id),
         };
         match done {
@@ -230,20 +246,39 @@ fn dictate(
     s: &Settings,
     raw: String,
     focused: Option<String>,
+    before: Option<String>,
     audio_ms: u64,
     model_id: &str,
 ) -> anyhow::Result<()> {
     let profile = focused.as_deref().and_then(|exe| s.app_profiles.iter().find(|p| p.exe.eq_ignore_ascii_case(exe)));
     let title = paste::focused_title();
+    let style = match text::category(focused.as_deref(), title.as_deref()) {
+        "email" => s.styles.email.clone(),
+        "work_chat" => s.styles.work_chat.clone(),
+        "personal_chat" => s.styles.personal_chat.clone(),
+        _ => s.styles.other.clone(),
+    };
     let mut spoken = raw.clone();
+    let mut polished = false;
     if s.ai.cleanup && ai::ready(&s.ai) {
         overlay_state(app, "think", Some("Polishing…".into()));
-        match ai::cleanup(&s.ai, &raw, focused.as_deref(), title.as_deref(), &s.custom_words) {
-            Ok(t) => spoken = t,
+        let at = ai::Where { app: focused.as_deref(), title: title.as_deref(), before: before.as_deref(), style: Some(&style) };
+        match ai::cleanup(&s.ai, &raw, &at, &s.custom_words) {
+            Ok(t) => {
+                spoken = t;
+                polished = true;
+            }
             Err(e) => eprintln!("baa: AI cleanup skipped: {e}"), // paste what was said instead
         }
     }
-    let out = text::process(&spoken, s, profile);
+    let mut out = text::process(&spoken, s, profile);
+    if !polished && profile.and_then(|p| p.style.as_deref()).is_none() {
+        out = text::apply_style(&out, &style);
+    }
+    if let Some(b) = before.as_deref() {
+        let tail = if out.ends_with(' ') { " " } else { "" };
+        out = text::continue_from(b, out.trim_end()) + tail;
+    }
     let send = profile.and_then(|p| p.auto_send).unwrap_or(s.auto_send);
     overlay_state(app, "send", None);
     let html = if s.rich_paste && text::wants_rich_text(focused.as_deref(), title.as_deref()) { text::to_html(out.trim_end()) } else { None };
@@ -308,6 +343,7 @@ pub fn cancel(app: &AppHandle) {
     }
     release_escape(app);
     st.recorder.cancel();
+    quiet::restore();
     overlay_state(app, "cancel", None);
     hide_later(app, 700);
 }
@@ -394,6 +430,7 @@ pub fn register(app: &AppHandle, s: &Settings) -> anyhow::Result<()> {
         keyhook::set_chord(0, chord_sender(app));
         bind(&s.shortcut, Action::Dictate, "Dictation");
     }
+    keyhook::set_mouse(&s.mouse_button);
     bind(&s.command_shortcut, Action::Command, "Command mode");
     bind(&s.repaste_shortcut, Action::Repaste, "Paste last");
     if problems.is_empty() {

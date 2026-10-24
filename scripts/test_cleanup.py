@@ -34,6 +34,9 @@ CASES = [
     ("chrome.exe: Google Search", "best mechanical keyboard under a hundred dollars"),
     ("discord.exe: #general", "lmao bro thats crazy no cap"),
     ("outlook.exe: New message", "send the invoice to accounts at hotbox pretzels dot com comma and cc me period"),
+    ("whatsapp.exe: Mum", "<style>very casual</style>\n", "hey mum um im gonna be late tonight probably around eight is that okay"),
+    ("outlook.exe: RE: invoice", "<style>formal</style>\n", "hey tom yeah no worries ill sort it out by friday cheers adam"),
+    ("WINWORD.EXE: Report.docx", "<before_cursor>The budget for next quarter is tight, and</before_cursor>\n", "We need to cut the ad spend by about ten percent"),
     ("notepad.exe: notes.txt", "um so basically the the main thing is that uh we need we need more people testing it scratch that we need more real people testing it every day"),
 ]
 
@@ -42,7 +45,8 @@ def main():
     client = anthropic.Anthropic(api_key=key())
     out = ["# Clean-up test\n"]
     only = sys.argv[1].lower() if len(sys.argv) > 1 else None
-    for ctx, text in CASES:
+    for case in CASES:
+        ctx, extra, text = case if len(case) == 3 else (case[0], "", case[1])
         if only and only not in ctx.lower():
             continue
         msg = client.messages.create(
@@ -50,7 +54,7 @@ def main():
             max_tokens=2048,
             system=PROMPT,
             output_config={"effort": "low"},
-            messages=[{"role": "user", "content": f"<context>{ctx}</context>\n<dictation>{text}</dictation>"}],
+            messages=[{"role": "user", "content": f"<context>{ctx}</context>\n{extra}<dictation>{text}</dictation>"}],
         )
         result = "".join(b.text for b in msg.content if b.type == "text").strip()
         if msg.stop_reason == "refusal":

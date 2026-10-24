@@ -6,10 +6,12 @@ mod engine;
 mod history;
 mod keyhook;
 mod learn;
+mod meeting;
 mod models;
 mod overlay;
 mod paste;
 mod pipeline;
+mod quiet;
 mod settings;
 mod text;
 
@@ -38,6 +40,7 @@ pub struct AppState {
     mic_test: Mutex<bool>,
     /// e.g. a shortcut another app owns; shown in the settings window
     startup_warning: Mutex<Option<String>>,
+    meeting: meeting::Meeting,
 }
 
 type S<'a> = State<'a, Arc<AppState>>;
@@ -293,10 +296,55 @@ async fn list_ai_models(st: S<'_>) -> Result<Vec<String>, String> {
 /// Runs the clean-up prompt on a sample so the user can see it work.
 #[tauri::command]
 async fn test_ai(st: S<'_>, sample: String, context: Option<String>) -> Result<String, String> {
-    let ai_settings = st.settings.get().ai;
-    tauri::async_runtime::spawn_blocking(move || ai::cleanup(&ai_settings, &sample, context.as_deref(), None, &[]))
+    let s = st.settings.get();
+    tauri::async_runtime::spawn_blocking(move || {
+        let app = context.as_deref();
+        let style = match text::category(app, None) {
+            "email" => s.styles.email,
+            "work_chat" => s.styles.work_chat,
+            "personal_chat" => s.styles.personal_chat,
+            _ => s.styles.other,
+        };
+        ai::cleanup(&s.ai, &sample, &ai::Where { app, style: Some(&style), ..Default::default() }, &[])
+    })
         .await
         .map_err(err)?
+}
+
+/// Writes every dictation to a .csv or .txt file the user picked.
+#[tauri::command]
+fn history_export(st: S, path: String) -> Result<usize, String> {
+    st.history.export(std::path::Path::new(&path)).map_err(err)
+}
+
+#[tauri::command]
+fn notes_list(st: S, query: Option<String>) -> Result<Vec<history::Note>, String> {
+    st.history.notes(query).map_err(err)
+}
+
+#[tauri::command]
+fn note_save(st: S, id: Option<i64>, title: String, body: String) -> Result<i64, String> {
+    st.history.save_note(id, &title, &body, "note").map_err(err)
+}
+
+#[tauri::command]
+fn note_delete(st: S, id: i64) -> Result<(), String> {
+    st.history.delete_note(id).map_err(err)
+}
+
+#[tauri::command]
+fn meeting_start(app: AppHandle) -> Result<(), String> {
+    meeting::start(&app).map_err(err)
+}
+
+#[tauri::command]
+fn meeting_stop(st: S) {
+    st.meeting.stop();
+}
+
+#[tauri::command]
+fn meeting_status(st: S) -> meeting::MeetingStatus {
+    st.meeting.status()
 }
 
 // ---------- startup ----------
@@ -333,6 +381,7 @@ pub fn run() {
                 pipe: Mutex::new(Pipe::default()),
                 mic_test: Mutex::new(false),
                 startup_warning: Mutex::new(None),
+                meeting: Default::default(),
             });
             app.manage(state.clone());
 
@@ -346,8 +395,9 @@ pub fn run() {
 
             // Tray: left click opens Baa, right click shows the menu.
             let open_i = MenuItem::with_id(app, "open", "Open Baa", true, None::<&str>)?;
+            let meet_i = MenuItem::with_id(app, "meeting", "Start or stop meeting notes", true, None::<&str>)?;
             let quit_i = MenuItem::with_id(app, "quit", "Quit Baa", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
+            let menu = Menu::with_items(app, &[&open_i, &meet_i, &quit_i])?;
             TrayIconBuilder::with_id("baa")
                 .icon(app.default_window_icon().cloned().expect("app icon"))
                 .tooltip("Baa")
@@ -355,6 +405,15 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, e| match e.id.as_ref() {
                     "open" => open_main(app, None),
+                    "meeting" => {
+                        let st = app.state::<Arc<AppState>>().inner().clone();
+                        if st.meeting.status().running {
+                            st.meeting.stop();
+                        } else if let Err(e) = meeting::start(app) {
+                            eprintln!("baa: meeting: {e}");
+                        }
+                        open_main(app, Some("notes"));
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -404,7 +463,14 @@ pub fn run() {
             set_api_key,
             list_ai_models,
             default_cleanup_prompt,
-            test_ai
+            test_ai,
+            history_export,
+            notes_list,
+            note_save,
+            note_delete,
+            meeting_start,
+            meeting_stop,
+            meeting_status
         ])
         .build(tauri::generate_context!())
         .expect("error while building Baa")

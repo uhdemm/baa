@@ -1,4 +1,4 @@
-//! Dictation history + stats in a local SQLite file.
+//! Dictation history, stats and notes in a local SQLite file.
 
 use parking_lot::Mutex;
 use rusqlite::{params, Connection};
@@ -26,6 +26,24 @@ pub struct Stats {
     pub streak_days: i64,
     /// Minutes saved vs typing at 40 words per minute, minus the time spent talking.
     pub minutes_saved: f64,
+    /// Speaking speed over all dictations, words per minute.
+    pub wpm: f64,
+    /// Words per local day for the last 14 days, oldest first ("2026-10-24", words).
+    pub daily: Vec<(String, i64)>,
+    /// Apps you dictate into most, (exe, words), top 5.
+    pub top_apps: Vec<(String, i64)>,
+}
+
+/// A note: typed or dictated in the Notes page, or written from a meeting.
+#[derive(Serialize, Clone)]
+pub struct Note {
+    pub id: i64,
+    pub created: i64,
+    pub updated: i64,
+    pub title: String,
+    pub body: String,
+    /// "note" | "meeting"
+    pub kind: String,
 }
 
 pub struct History {
@@ -39,7 +57,10 @@ impl History {
             "CREATE TABLE IF NOT EXISTS entries (
                 id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, text TEXT NOT NULL, raw TEXT NOT NULL,
                 app TEXT, words INTEGER NOT NULL, audio_ms INTEGER NOT NULL, model TEXT);
-             CREATE INDEX IF NOT EXISTS entries_ts ON entries(ts);",
+             CREATE INDEX IF NOT EXISTS entries_ts ON entries(ts);
+             CREATE TABLE IF NOT EXISTS notes (
+                id INTEGER PRIMARY KEY, created INTEGER NOT NULL, updated INTEGER NOT NULL,
+                title TEXT NOT NULL, body TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'note');",
         )?;
         Ok(History { db: Mutex::new(db) })
     }
@@ -120,6 +141,98 @@ impl History {
             }
         }
         let minutes_saved = (total_words as f64 / 40.0 - audio_ms as f64 / 60_000.0).max(0.0);
-        Ok(Stats { total_words, total_dictations, words_today, words_week, streak_days: streak, minutes_saved })
+        let wpm = if audio_ms > 0 { total_words as f64 / (audio_ms as f64 / 60_000.0) } else { 0.0 };
+        let daily = (0..14)
+            .rev()
+            .map(|back| {
+                let d = today - Duration::days(back);
+                let from = start_of(d);
+                let to = start_of(d + Duration::days(1));
+                let w: i64 = db
+                    .query_row(
+                        "SELECT COALESCE(SUM(words),0) FROM entries WHERE ts >= ?1 AND ts < ?2",
+                        params![from, to],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+                (d.format("%Y-%m-%d").to_string(), w)
+            })
+            .collect();
+        let mut st = db.prepare(
+            "SELECT app, SUM(words) FROM entries WHERE app IS NOT NULL GROUP BY app ORDER BY 2 DESC LIMIT 5",
+        )?;
+        let top_apps = st.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.filter_map(Result::ok).collect();
+        Ok(Stats { total_words, total_dictations, words_today, words_week, streak_days: streak, minutes_saved, wpm, daily, top_apps })
+    }
+
+    /// Every dictation, newest first, as CSV or plain text, written to `path`.
+    pub fn export(&self, path: &Path) -> anyhow::Result<usize> {
+        let all = self.list(i64::MAX, 0, None)?;
+        let csv = path.extension().is_some_and(|e| e.eq_ignore_ascii_case("csv"));
+        let when = |ts: i64| {
+            use chrono::TimeZone;
+            chrono::Local.timestamp_opt(ts, 0).single().map(|d| d.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_default()
+        };
+        let mut out = String::new();
+        if csv {
+            let q = |s: &str| format!("\"{}\"", s.replace('"', "\"\""));
+            out.push_str("time,app,words,seconds,text,raw\r\n");
+            for e in &all {
+                out.push_str(&format!(
+                    "{},{},{},{:.1},{},{}\r\n",
+                    when(e.ts),
+                    q(e.app.as_deref().unwrap_or("")),
+                    e.words,
+                    e.audio_ms as f64 / 1000.0,
+                    q(&e.text),
+                    q(&e.raw)
+                ));
+            }
+        } else {
+            for e in &all {
+                out.push_str(&format!("{}  {}\r\n{}\r\n\r\n", when(e.ts), e.app.as_deref().unwrap_or(""), e.text));
+            }
+        }
+        std::fs::write(path, out)?;
+        Ok(all.len())
+    }
+
+    // ---------- notes ----------
+
+    pub fn notes(&self, query: Option<String>) -> anyhow::Result<Vec<Note>> {
+        let db = self.db.lock();
+        let q = format!("%{}%", query.unwrap_or_default());
+        let mut st = db.prepare(
+            "SELECT id, created, updated, title, body, kind FROM notes
+             WHERE title LIKE ?1 OR body LIKE ?1 ORDER BY updated DESC LIMIT 500",
+        )?;
+        let rows = st.query_map(params![q], |r| {
+            Ok(Note { id: r.get(0)?, created: r.get(1)?, updated: r.get(2)?, title: r.get(3)?, body: r.get(4)?, kind: r.get(5)? })
+        })?;
+        Ok(rows.filter_map(Result::ok).collect())
+    }
+
+    /// Saves a note; with no id it makes a new one. Returns the note's id.
+    pub fn save_note(&self, id: Option<i64>, title: &str, body: &str, kind: &str) -> anyhow::Result<i64> {
+        let db = self.db.lock();
+        let now = chrono::Utc::now().timestamp();
+        match id {
+            Some(id) => {
+                db.execute("UPDATE notes SET title = ?1, body = ?2, updated = ?3 WHERE id = ?4", params![title, body, now, id])?;
+                Ok(id)
+            }
+            None => {
+                db.execute(
+                    "INSERT INTO notes (created, updated, title, body, kind) VALUES (?1,?1,?2,?3,?4)",
+                    params![now, title, body, kind],
+                )?;
+                Ok(db.last_insert_rowid())
+            }
+        }
+    }
+
+    pub fn delete_note(&self, id: i64) -> anyhow::Result<()> {
+        self.db.lock().execute("DELETE FROM notes WHERE id = ?1", params![id])?;
+        Ok(())
     }
 }

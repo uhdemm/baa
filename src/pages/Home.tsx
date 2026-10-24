@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { api, Entry, Stats } from "../api";
 import type { PageProps } from "../App";
 import Face from "../ui/Face";
@@ -36,7 +37,20 @@ export default function Home({ settings }: PageProps) {
     setCopied(e.id);
     setTimeout(() => setCopied(null), 1200);
   };
+  const exportAll = async () => {
+    const path = await saveDialog({
+      defaultPath: `baa-history-${new Date().toISOString().slice(0, 10)}.csv`,
+      filters: [{ name: "Spreadsheet (CSV)", extensions: ["csv"] }, { name: "Text", extensions: ["txt"] }],
+    });
+    if (path) {
+      const n = await api.historyExport(path);
+      setNote(`Saved ${n} dictations`);
+      setTimeout(() => setNote(null), 2500);
+    }
+  };
+  const [note, setNote] = useState<string | null>(null);
   const saved = stats?.minutes_saved ?? 0;
+  const peak = Math.max(1, ...(stats?.daily ?? []).map(([, w]) => w));
   const savedLabel = saved >= 60 ? `${Math.floor(saved / 60)}h ${Math.round(saved % 60)}m` : `${Math.round(saved)}m`;
 
   return (
@@ -62,11 +76,39 @@ export default function Home({ settings }: PageProps) {
         </div>
       )}
 
+      {stats && stats.total_words > 0 && (
+        <div className="section insights">
+          <div className="chart">
+            <div className="chart-head"><h2>Last two weeks</h2><span className="hint">{stats.words_week.toLocaleString()} words this week</span></div>
+            <div className="bars">
+              {stats.daily.map(([day, w]) => (
+                <div key={day} className="bar-col" title={`${new Date(day + "T12:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}: ${w} words`}>
+                  <i style={{ height: `${Math.max(w ? 6 : 2, (w / peak) * 100)}%` }} className={w ? "" : "zero"} />
+                  <span>{new Date(day + "T12:00").toLocaleDateString(undefined, { weekday: "narrow" })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="side-facts">
+            <div className="fact"><b>{Math.round(stats.wpm)}</b><span>words per minute when you talk</span><em>typing is about 40</em></div>
+            {stats.top_apps.length > 0 && (
+              <div className="fact">
+                <span>Where you talk most</span>
+                <ul className="top-apps">
+                  {stats.top_apps.slice(0, 3).map(([app, w]) => <li key={app}><b>{app.replace(/\.exe$/, "")}</b><span>{w.toLocaleString()}</span></li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="section">
         <h2>History</h2>
         <div className="searchbar">
           <input className="input" style={{ flex: 1, maxWidth: 300 }} placeholder="Search history" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="btn" onClick={() => api.repasteLast()}>Paste last again</button>
+          {rows.length > 0 && <button className="btn ghost" onClick={exportAll}>{note ?? "Export"}</button>}
           {rows.length > 0 && <button className="btn ghost" onClick={() => api.historyClear().then(load)}>Clear all</button>}
         </div>
         {rows.length === 0 && (

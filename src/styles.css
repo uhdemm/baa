@@ -313,3 +313,62 @@ html.overlay, html.overlay body { background: transparent !important; overflow: 
 .pick p { color: var(--l2); font-size: 11px; }
 .trybox { width: 100%; min-height: 90px; margin-top: 16px; border-radius: calc(10px * var(--r)); border: 0; background: #fff; padding: 10px; resize: none; outline: none; text-align: left; box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12); }
 .trybox:focus { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.35); }
+
+/* ---------- small helpers ---------- */
+.hint { color: var(--l2); font-size: 11px; line-height: 14px; }
+.empty.center { justify-content: center; height: 100%; }
+
+/* ---------- Home insights ---------- */
+.insights { grid-template-columns: 1fr 210px; gap: 12px; align-items: stretch; }
+.insights .chart, .insights .fact { background: var(--fill); border-radius: calc(12px * var(--r)); padding: 12px 14px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.chart-head h2 { font-size: 13px; font-weight: 700; }
+.bars { display: grid; grid-template-columns: repeat(14, 1fr); gap: 5px; height: 96px; align-items: end; }
+.bar-col { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; gap: 4px; }
+.bar-col i { display: block; width: 100%; max-width: 18px; border-radius: calc(4px * var(--r)) calc(4px * var(--r)) 2px 2px; background: var(--accent); }
+.bar-col i.zero { background: var(--fill-2); }
+.bar-col span { font-size: 10px; color: var(--l2); }
+.side-facts { display: grid; gap: 8px; }
+.fact { display: grid; gap: 2px; align-content: start; }
+.fact b { font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: -0.4px; }
+.fact span { color: var(--l2); font-size: 11px; }
+.fact em { font-style: normal; color: var(--l3); font-size: 11px; }
+.top-apps { list-style: none; padding: 0; display: grid; gap: 3px; margin-top: 4px; }
+.top-apps li { display: flex; justify-content: space-between; font-size: 12px; }
+.top-apps li b { font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0; }
+.top-apps li span { color: var(--l2); font-variant-numeric: tabular-nums; }
+
+/* ---------- Style ---------- */
+.style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.style-card { text-align: left; border: 0; cursor: default; background: var(--fill); border-radius: calc(12px * var(--r)); padding: 12px 14px; display: grid; gap: 10px; color: var(--l1); box-shadow: inset 0 0 0 1px transparent; }
+.style-card:hover { background: var(--fill-2); }
+.style-card.on { background: rgba(var(--accent-rgb), 0.08); box-shadow: inset 0 0 0 1.5px var(--accent); }
+.style-top { display: grid; gap: 1px; }
+.style-top b { font-size: 13px; }
+.style-top span { color: var(--l2); font-size: 11px; }
+.style-sample { background: #fff; border-radius: calc(8px * var(--r)); padding: 9px 11px; line-height: 17px; white-space: pre-wrap; box-shadow: 0 0.5px 1.5px rgba(0, 0, 0, 0.12); min-height: 54px; }
+
+/* ---------- Notes + meetings ---------- */
+.meet-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: calc(12px * var(--r)); background: var(--fill); }
+.meet-card.live { background: rgba(255, 56, 60, 0.07); }
+.meet-text { flex: 1; display: grid; gap: 2px; }
+.meet-text b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.meet-text span { color: var(--l2); font-size: 11px; line-height: 14px; }
+.rec-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--red); margin-right: 4px; }
+.btn.primary .rec-dot { background: #fff; }
+.meet-card.live .rec-dot { animation: recpulse 1.4s ease-in-out infinite; }
+@keyframes recpulse { 50% { opacity: 0.35; } }
+.meet-live { font: inherit; white-space: pre-wrap; color: var(--l2); background: var(--fill); border-radius: calc(10px * var(--r)); padding: 10px 12px; line-height: 17px; }
+.notes { display: grid; grid-template-columns: 240px 1fr; gap: 12px; min-height: 380px; }
+.notes-list ul { list-style: none; padding: 0; display: grid; gap: 2px; margin-top: 8px; }
+.note-row { width: 100%; text-align: left; border: 0; background: none; border-radius: calc(8px * var(--r)); padding: 7px 9px; display: grid; gap: 1px; cursor: default; color: var(--l1); }
+.note-row:hover { background: var(--fill-2); }
+.note-row.on { background: rgba(var(--accent-rgb), 0.12); }
+.note-row b { display: flex; gap: 5px; align-items: center; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-row span { color: var(--l2); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.note-edit { background: #fff; border-radius: calc(12px * var(--r)); box-shadow: 0 0.5px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.05); padding: 12px 16px; display: flex; flex-direction: column; }
+.note-tools { display: flex; align-items: center; gap: 4px; }
+.note-tools .hint { flex: 1; }
+.page input.note-title, input.note-title { border: 0; box-shadow: none; background: none; font-size: 20px; font-weight: 700; letter-spacing: -0.4px; padding: 8px 0 4px; height: auto; width: 100%; outline: 0; }
+.page textarea.note-body, textarea.note-body { flex: 1; border: 0; box-shadow: none; background: none; resize: none; font: inherit; line-height: 19px; padding: 4px 0; min-height: 300px; outline: 0; }
+.page input.note-title:focus, .page textarea.note-body:focus { box-shadow: none; }

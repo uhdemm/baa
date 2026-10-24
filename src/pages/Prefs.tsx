@@ -86,6 +86,11 @@ export default function Prefs({ settings, save }: PageProps) {
           <Row title="Paste last again" desc="For when the words landed in the wrong box.">
             <ShortcutInput value={settings.repaste_shortcut} onChange={(v) => set("repaste_shortcut", v)} />
           </Row>
+          <Row title="Mouse button" desc="A side button on your mouse works like the dictation shortcut.">
+            <Select width={250} value={settings.mouse_button} onChange={(v) => set("mouse_button", v as Settings["mouse_button"])} options={[
+              { value: "", label: "None" }, { value: "mouse4", label: "Back side button (Mouse 4)" }, { value: "mouse5", label: "Forward side button (Mouse 5)" },
+            ]} />
+          </Row>
           <Row title="How it listens" desc="Hold, tap, or both.">
             <Select width={250} value={settings.mode} onChange={(v) => set("mode", v as Mode)} options={[
               { value: "hybrid", label: "Hold, or tap to start and stop" },
@@ -106,6 +111,15 @@ export default function Prefs({ settings, save }: PageProps) {
           <Row title="Language" desc="Leave on automatic unless the model keeps guessing wrong.">
             <Select width={250} value={settings.language ?? ""} onChange={(v) => set("language", v || null)} options={LANGS.map(([value, label]) => ({ value, label }))} />
           </Row>
+          <Row title="Speak any language, get English" desc="Talk in Spanish, French, Japanese… and English is typed. Needs a Whisper or Canary model.">
+            <Toggle on={settings.translate_to_english} onChange={(v) => set("translate_to_english", v)} />
+          </Row>
+          <Row title="Whisper mode" desc="For quiet offices and late nights: boosts soft speech so you can talk under your breath.">
+            <Toggle on={settings.whisper_mode} onChange={(v) => set("whisper_mode", v)} />
+          </Row>
+          <Row title="Quiet other sound" desc="Mutes music and videos while you talk, then turns them back on.">
+            <Toggle on={settings.mute_while_dictating} onChange={(v) => set("mute_while_dictating", v)} />
+          </Row>
           <Row title="Cut out silence" desc="Skips the quiet parts so the model works less.">
             <Toggle on={settings.use_vad} onChange={(v) => set("use_vad", v)} />
           </Row>
@@ -122,6 +136,9 @@ export default function Prefs({ settings, save }: PageProps) {
             <Select width={250} value={settings.auto_send} onChange={(v) => set("auto_send", v as AutoSend)} options={[
               { value: "off", label: "Just paste" }, { value: "enter", label: "Paste and press Enter" }, { value: "ctrl_enter", label: "Paste and press Ctrl+Enter" },
             ]} />
+          </Row>
+          <Row title="Carry on the sentence" desc="Looks at the text before your cursor: no capital mid-sentence, a space when you need one.">
+            <Toggle on={settings.smart_continue} onChange={(v) => set("smart_continue", v)} />
           </Row>
           <Row title="Add a space after" desc="So the next dictation doesn't run into the last one.">
             <Toggle on={settings.trailing_space} onChange={(v) => set("trailing_space", v)} />

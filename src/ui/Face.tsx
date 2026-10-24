@@ -34,8 +34,16 @@ const MOODS: Record<Mood, [Px[], Px[], Px[]]> = {
 const OX = 2, OY = 4;
 
 /** `size` is the width of the face body (the 16-pixel head); the canvas adds a 2-pixel margin each side. */
-export default function Face({ mood = "idle", size = 32, extras = true, className }: { mood?: Mood; size?: number; extras?: boolean; className?: string }) {
-  const [dark, mouth, xdark] = MOODS[mood];
+/** A mouth that opens with the voice: 0 quiet .. 1 loud. */
+function talkMouth(level: number): Px[] {
+  if (level < 0.12) return [[7, 10], [8, 10]];
+  const rows = level < 0.4 ? [10] : level < 0.7 ? [9, 10] : [9, 10, 11];
+  return rows.flatMap((y) => [6, 7, 8, 9].map((x): Px => [x, y]));
+}
+
+export default function Face({ mood = "idle", size = 32, extras = true, className, talk }: { mood?: Mood; size?: number; extras?: boolean; className?: string; talk?: number }) {
+  const [dark, moodMouth, xdark] = MOODS[mood];
+  const mouth = mood === "listening" && talk !== undefined ? talkMouth(talk) : moodMouth;
   const cells = new Map<string, "d" | "m">();
   FACE.forEach((row, y) => [...row].forEach((ch, x) => ch === "X" && cells.set(`${x + OX},${y + OY}`, "d")));
   dark.forEach(([x, y]) => cells.set(`${x + OX},${y + OY}`, "d"));

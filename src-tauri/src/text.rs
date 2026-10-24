@@ -176,6 +176,70 @@ pub fn wants_rich_text(app: Option<&str>, title: Option<&str>) -> bool {
     !(browser && PLAIN_SITES.iter().any(|s| title.contains(s)))
 }
 
+/// Makes a dictation carry on from the text before the cursor: a space when it
+/// would run into the last word, a lowercase start mid-sentence, a capital after a
+/// full stop. Lists and multi-line text are left alone.
+pub fn continue_from(before: &str, t: &str) -> String {
+    if before.is_empty() || t.is_empty() || t.contains('\n') {
+        return t.to_string();
+    }
+    let last = before.chars().last().unwrap();
+    if last == '\n' || last == '\r' {
+        return t.to_string();
+    }
+    let prev = before.trim_end().chars().last();
+    let sentence_end = prev.map_or(true, |c| ".!?:".contains(c));
+    let mut out = t.to_string();
+    let first_word: String = out.chars().take_while(|c| c.is_alphanumeric() || *c == '\'').collect();
+    let keep_capital = first_word == "I" || first_word.starts_with("I'") || first_word.chars().skip(1).any(char::is_uppercase);
+    let mut c = out.chars();
+    if let Some(f) = c.next() {
+        if sentence_end {
+            out = f.to_uppercase().collect::<String>() + c.as_str();
+        } else if !keep_capital {
+            out = f.to_lowercase().collect::<String>() + c.as_str();
+        }
+    }
+    let starts_with_punct = out.chars().next().is_some_and(|c| ",.;:!?)".contains(c));
+    if !last.is_whitespace() && !starts_with_punct && !"([{\"'/".contains(last) {
+        out.insert(0, ' ');
+    }
+    out
+}
+
+/// Which kind of app this is, for Style: "email", "work_chat", "personal_chat" or "other".
+pub fn category(app: Option<&str>, title: Option<&str>) -> &'static str {
+    let a = app.unwrap_or("").to_lowercase();
+    let t = title.unwrap_or("").to_lowercase();
+    let has = |list: &[&str], s: &str| list.iter().any(|x| s.contains(x));
+    const EMAIL_APPS: &[&str] = &["outlook", "thunderbird", "olk.exe", "mailspring"];
+    const EMAIL_SITES: &[&str] = &["gmail", "inbox", "outlook", "compose", "proton mail", "yahoo mail"];
+    const WORK: &[&str] = &["slack", "teams", "zoom", "webex", "mattermost"];
+    const PERSONAL: &[&str] = &["discord", "whatsapp", "telegram", "signal", "messenger", "instagram", "imessage"];
+    let browser = ["chrome", "msedge", "firefox", "brave", "opera", "arc", "vivaldi"].iter().any(|b| a.contains(b));
+    if has(EMAIL_APPS, &a) || (browser && has(EMAIL_SITES, &t)) {
+        "email"
+    } else if has(WORK, &a) || (browser && has(WORK, &t)) {
+        "work_chat"
+    } else if has(PERSONAL, &a) || (browser && has(PERSONAL, &t)) {
+        "personal_chat"
+    } else {
+        "other"
+    }
+}
+
+/// Style without the AI: only the parts plain rules can do safely.
+pub fn apply_style(t: &str, style: &str) -> String {
+    if t.contains('\n') {
+        return t.to_string();
+    }
+    match style {
+        "very_casual" => t.to_lowercase().trim_end_matches('.').to_string(),
+        "casual" | "excited" => t.trim_end_matches('.').to_string(),
+        _ => t.to_string(),
+    }
+}
+
 pub fn word_count(t: &str) -> usize {
     t.split_whitespace().count()
 }
@@ -252,6 +316,27 @@ To do:
         assert!(wants_rich_text(Some("chrome.exe"), Some("Inbox - Gmail")));
         assert!(!wants_rich_text(Some("discord.exe"), None));
         assert!(!wants_rich_text(Some("chrome.exe"), Some("ChatGPT - Google Chrome")));
+    }
+
+    #[test]
+    fn continues_the_sentence() {
+        assert_eq!(continue_from("I went to the", "Store today."), " store today.");
+        assert_eq!(continue_from("Done. ", "next one"), "Next one");
+        assert_eq!(continue_from("Done.", "next one"), " Next one");
+        assert_eq!(continue_from("so ", "I think so"), "I think so");
+        assert_eq!(continue_from("", "Hello"), "Hello");
+        assert_eq!(continue_from("line\n", "Hello"), "Hello");
+        assert_eq!(continue_from("we use ", "GitHub daily"), "GitHub daily");
+    }
+
+    #[test]
+    fn style_categories() {
+        assert_eq!(category(Some("outlook.exe"), None), "email");
+        assert_eq!(category(Some("chrome.exe"), Some("Inbox (3) - Gmail")), "email");
+        assert_eq!(category(Some("slack.exe"), None), "work_chat");
+        assert_eq!(category(Some("discord.exe"), None), "personal_chat");
+        assert_eq!(category(Some("winword.exe"), None), "other");
+        assert_eq!(apply_style("Sounds good.", "very_casual"), "sounds good");
     }
 
     #[test]

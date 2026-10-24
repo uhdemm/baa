@@ -91,7 +91,7 @@ impl Engine {
     }
 
     /// Cuts silence out of the clip. Returns None when there's no speech at all.
-    fn trim_silence(&self, pcm: &[f32]) -> Option<Vec<f32>> {
+    fn trim_silence(&self, pcm: &[f32], threshold: f64) -> Option<Vec<f32>> {
         let mut vad = self.vad.lock();
         if vad.is_none() {
             match Model::load(&self.vad_path).and_then(|m| m.vad_session()) {
@@ -102,7 +102,7 @@ impl Engine {
                 }
             }
         }
-        let opts = VadOptions { speech_pad_ms: 200, min_silence_ms: 300, ..Default::default() };
+        let opts = VadOptions { threshold, speech_pad_ms: 200, min_silence_ms: 300, ..Default::default() };
         let res = match vad.as_mut().unwrap().run(pcm, &opts) {
             Ok(r) => r,
             Err(e) => {
@@ -123,40 +123,66 @@ impl Engine {
         Some(out)
     }
 
-    pub fn transcribe(
-        &self,
-        path: &Path,
-        pcm: &[f32],
-        use_vad: bool,
-        language: Option<String>,
-        vocabulary: Vec<String>,
-    ) -> anyhow::Result<Outcome> {
+    pub fn transcribe(&self, path: &Path, pcm: &[f32], o: &Opts) -> anyhow::Result<Outcome> {
         // Under a quarter second of audio is a mis-press, not speech.
         if pcm.len() < 4000 {
             return Ok(Outcome::NoSpeech);
         }
-        let audio = if use_vad {
-            match self.trim_silence(pcm) {
+        let pcm = normalize(pcm, o.whisper);
+        let audio = if o.use_vad {
+            match self.trim_silence(&pcm, if o.whisper { 0.35 } else { 0.5 }) {
                 Some(a) => a,
                 None => return Ok(Outcome::NoSpeech),
             }
         } else {
-            pcm.to_vec()
+            pcm
         };
         self.ensure_loaded(path)?;
         let mut slot = self.loaded.lock();
         let l = slot.as_mut().ok_or_else(|| anyhow::anyhow!("model not loaded"))?;
         let vocab_ok = l.model.supports(transcribe_cpp::Feature::Vocabulary);
-        let opts = RunOptions {
-            language,
-            vocabulary: if vocab_ok { vocabulary } else { vec![] },
+        let mut opts = RunOptions {
+            language: o.language.clone(),
+            vocabulary: if vocab_ok { o.vocabulary.clone() } else { vec![] },
             ..Default::default()
         };
+        if o.translate {
+            let caps = l.model.capabilities()?;
+            if !caps.supports_translate {
+                anyhow::bail!("This model can't translate. Pick Whisper or Canary in Models, or turn translation off.");
+            }
+            opts.task = transcribe_cpp::Task::Translate;
+            opts.target_language = Some("en".into());
+        }
         let result = l.session.run(&audio, &opts)?;
         *self.last_used.lock() = Instant::now();
         let text = result.text.trim().to_string();
         Ok(if text.is_empty() { Outcome::NoSpeech } else { Outcome::Text(text) })
     }
+}
+
+/// What to do with one recording.
+#[derive(Default, Clone)]
+pub struct Opts {
+    pub use_vad: bool,
+    pub language: Option<String>,
+    pub vocabulary: Vec<String>,
+    /// translate any language into English (Whisper, Canary)
+    pub translate: bool,
+    /// quiet speech: boost harder and listen for softer voices
+    pub whisper: bool,
+}
+
+/// Auto-volume: brings quiet recordings up to a healthy level before the model
+/// hears them. Whisper mode allows a much bigger boost for soft speech.
+pub fn normalize(pcm: &[f32], whisper: bool) -> Vec<f32> {
+    let peak = pcm.iter().fold(0f32, |m, s| m.max(s.abs()));
+    if peak < 1e-4 {
+        return pcm.to_vec();
+    }
+    let max_gain = if whisper { 12.0 } else { 3.0 };
+    let gain = (0.6 / peak).clamp(1.0, max_gain);
+    pcm.iter().map(|s| (s * gain).clamp(-1.0, 1.0)).collect()
 }
 
 impl Engine {
@@ -194,10 +220,10 @@ mod tests {
         let engine = Engine::new(PathBuf::from("resources/silero-vad.bin"));
         let pcm = read_wav("tests/hello.wav");
         let t0 = Instant::now();
-        let out = engine.transcribe(Path::new(&model), &pcm, true, None, vec![]).unwrap();
+        let out = engine.transcribe(Path::new(&model), &pcm, &Opts { use_vad: true, ..Default::default() }).unwrap();
         let first = t0.elapsed();
         let t1 = Instant::now();
-        let again = engine.transcribe(Path::new(&model), &pcm, true, None, vec![]).unwrap();
+        let again = engine.transcribe(Path::new(&model), &pcm, &Opts { use_vad: true, ..Default::default() }).unwrap();
         println!("backend: {:?}", engine.status().backend);
         println!("cold (load + run): {first:?}, warm run: {:?}", t1.elapsed());
         match (out, again) {
@@ -208,6 +234,6 @@ mod tests {
             _ => panic!("no speech detected"),
         }
         // silence must come back as NoSpeech, not hallucinated text
-        assert!(matches!(engine.transcribe(Path::new(&model), &vec![0.0; 32000], true, None, vec![]).unwrap(), Outcome::NoSpeech));
+        assert!(matches!(engine.transcribe(Path::new(&model), &vec![0.0; 32000], &Opts { use_vad: true, ..Default::default() }).unwrap(), Outcome::NoSpeech));
     }
 }

@@ -115,6 +115,23 @@ impl Default for Appearance {
     }
 }
 
+/// How you sound in each kind of app, like Wispr Flow's Style: "formal",
+/// "casual", "very_casual" or "excited". Fed to the AI clean-up.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct Styles {
+    pub email: String,
+    pub work_chat: String,
+    pub personal_chat: String,
+    pub other: String,
+}
+
+impl Default for Styles {
+    fn default() -> Self {
+        Styles { email: "formal".into(), work_chat: "casual".into(), personal_chat: "casual".into(), other: "formal".into() }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct Settings {
@@ -126,6 +143,17 @@ pub struct Settings {
     pub repaste_shortcut: String,
     /// Show the words in the bar while you talk.
     pub live_preview: bool,
+    /// A mouse side button that works like the shortcut: "" | "mouse4" | "mouse5"
+    pub mouse_button: String,
+    /// Speak any language, get English (models that can translate).
+    pub translate_to_english: bool,
+    /// Boost quiet speech and listen for softer voices.
+    pub whisper_mode: bool,
+    /// Mute other sound (music, videos) while you talk.
+    pub mute_while_dictating: bool,
+    /// Read the text before the cursor so new words continue it (spacing, capitals).
+    pub smart_continue: bool,
+    pub styles: Styles,
     pub ai: AiSettings,
     pub appearance: Appearance,
     /// Watch for words you fix after pasting and offer to remember them.
@@ -165,6 +193,12 @@ impl Default for Settings {
             command_shortcut: "Alt+Shift+Space".into(),
             repaste_shortcut: "Alt+Shift+V".into(),
             live_preview: true,
+            mouse_button: String::new(),
+            translate_to_english: false,
+            whisper_mode: false,
+            mute_while_dictating: false,
+            smart_continue: true,
+            styles: Styles::default(),
             ai: AiSettings::default(),
             appearance: Appearance::default(),
             learn_words: true,

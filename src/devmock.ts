@@ -2,7 +2,9 @@
 // calls with sample data so every screen can be previewed. Never bundled into the app.
 const settings = {
   shortcut: "Ctrl+Space", mode: "hybrid", command_shortcut: "Alt+Shift+Space", repaste_shortcut: "Alt+Shift+V",
-  live_preview: true, learn_words: true,
+  live_preview: true, learn_words: true, mouse_button: "", translate_to_english: false, whisper_mode: false,
+  mute_while_dictating: false, smart_continue: true,
+  styles: { email: "formal", work_chat: "casual", personal_chat: "very_casual", other: "formal" },
   appearance: { material: "glass", thickness: 2, tint: "#ffffff", tint_strength: 0, accent: "#0d6fff", roundness: 1, wallpaper_through: true, bar_size: "regular", show_face: true }, word_suggestions: ["Remotion"],
   ai: { cleanup: false, provider: "groq", base_url: "", model: "llama-3.3-70b-versatile", prompt: "You clean up dictated text.", timeout_secs: 6 },
   model: "parakeet-tdt-0.6b-v3", imported_models: [], language: null, microphone: null, auto_send: "off",
@@ -15,7 +17,16 @@ const settings = {
 const now = Math.floor(Date.now() / 1000);
 const data: Record<string, unknown> = {
   get_settings: settings, set_settings: settings, startup_warning: null,
-  stats: { total_words: 4182, total_dictations: 211, words_today: 640, words_week: 2390, streak_days: 6, minutes_saved: 87 },
+  stats: { total_words: 4182, total_dictations: 211, words_today: 640, words_week: 2390, streak_days: 6, minutes_saved: 87, wpm: 148,
+    daily: [...Array(14)].map((_, i) => [new Date(Date.now() - (13 - i) * 864e5).toISOString().slice(0, 10), [120, 0, 340, 510, 220, 90, 0, 610, 450, 380, 700, 260, 530, 640][i]]),
+    top_apps: [["discord.exe", 1820], ["notion.exe", 1104], ["chrome.exe", 640]] },
+  notes_list: [
+    { id: 2, created: now - 7200, updated: now - 7000, kind: "meeting", title: "Friday shoot plan with Brad",
+      body: "Summary\nBrad and Adam locked the Friday shoot at the studio, 9:30 AM start.\n\nAction items\n- Me: bring the two softboxes, tripod and SD cards\n- Brad: confirm the talent by Thursday\n\nTranscript\nThem: so are we good for friday\nMe: yeah nine thirty at the studio" },
+    { id: 1, created: now - 90000, updated: now - 86000, kind: "note", title: "Baa launch ideas", body: "Landing page on baa.rip\nPost on Twitter and Reddit" },
+  ],
+  meeting_status: { running: location.search.includes("meeting"), finishing: false, seconds: 754, hears_call: true,
+    transcript: "Them: okay so where are we on the render\nMe: it's done, uploading it now\nThem: perfect, can you send the link to Brad too" },
   history_list: [
     { id: 3, ts: now - 40, text: "Just taking some notes on this idea. I think the new design is feeling really good.", raw: "", app: "notion.exe", words: 16, audio_ms: 5200, model: null },
     { id: 2, ts: now - 3600, text: "Can you send the Remotion render to Big Square before Friday?", raw: "", app: "discord.exe", words: 11, audio_ms: 3800, model: null },

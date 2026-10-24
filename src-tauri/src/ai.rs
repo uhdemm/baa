@@ -157,27 +157,63 @@ pub fn list_models(ai: &AiSettings) -> anyhow::Result<Vec<String>> {
 
 /// Dictation clean-up. Falls back to the original text on any failure so a slow
 /// or offline AI never eats what you said.
-pub fn cleanup(ai: &AiSettings, text: &str, app: Option<&str>, title: Option<&str>, custom_words: &[String]) -> Result<String, String> {
+/// Where a dictation is going and what is already there.
+#[derive(Default)]
+pub struct Where<'a> {
+    pub app: Option<&'a str>,
+    pub title: Option<&'a str>,
+    /// text just before the cursor, so the clean-up can continue it
+    pub before: Option<&'a str>,
+    /// "formal" | "casual" | "very_casual" | "excited"
+    pub style: Option<&'a str>,
+}
+
+pub fn cleanup(ai: &AiSettings, text: &str, at: &Where, custom_words: &[String]) -> Result<String, String> {
     let mut system = ai.prompt.clone();
     if !custom_words.is_empty() {
-        system.push_str(&format!("
-
-NAMES AND TERMS
-Spell these exactly as written here: {}.", custom_words.join(", ")));
+        system.push_str(&format!("\n\nNAMES AND TERMS\nSpell these exactly as written here: {}.", custom_words.join(", ")));
     }
-    let context = match (app, title.filter(|t| !t.trim().is_empty())) {
+    let context = match (at.app, at.title.filter(|t| !t.trim().is_empty())) {
         (Some(a), Some(t)) => format!("{a}: {t}"),
         (Some(a), None) => a.to_string(),
         (None, Some(t)) => t.to_string(),
         (None, None) => "unknown".into(),
     };
-    let user = format!("<context>{context}</context>
-<dictation>{text}</dictation>");
+    let mut user = format!("<context>{context}</context>\n");
+    if let Some(st) = at.style {
+        user.push_str(&format!("<style>{}</style>\n", st.replace('_', " ")));
+    }
+    if let Some(b) = at.before.filter(|b| !b.trim().is_empty()) {
+        user.push_str(&format!("<before_cursor>{b}</before_cursor>\n"));
+    }
+    user.push_str(&format!("<dictation>{text}</dictation>"));
     match complete(ai, &system, &user) {
         Ok(out) if !out.is_empty() => Ok(strip_wrapper(&out)),
         Ok(_) => Err("AI returned nothing".into()),
         Err(e) => Err(e.to_string()),
     }
+}
+
+const MEETING_PROMPT: &str = "You write meeting notes from a call transcript. Lines starting with \"Me:\" are the person \
+taking the notes; lines starting with \"Them:\" are everyone else on the call (it may be several people). The transcript \
+comes from speech recognition, so fix obvious mishearings from context.
+
+Reply in plain text with this shape and nothing else:
+- First line: a short title for the meeting (3 to 7 words, no date, no quotes).
+- A blank line, then \"Summary\" on its own line and 2 to 4 sentences on what the meeting was about and where it ended up.
+- A blank line, then \"Decisions\" and one \"- \" line per decision. Leave the section out if nothing was decided.
+- A blank line, then \"Action items\" and one \"- \" line per task: who does it (Me, or a name if one was said), what, and by when if said. Leave it out if there are none.
+- A blank line, then \"Notes\" and \"- \" lines for the important details, numbers, names and dates worth keeping.
+
+Only write what was said. Do not invent names, dates or tasks. No markdown symbols other than \"- \" for list items.";
+
+/// Turns a meeting transcript into notes: title line first, then the sections.
+pub fn meeting_notes(ai: &AiSettings, transcript: &str) -> anyhow::Result<String> {
+    // a long meeting needs more time than a dictation
+    let mut ai = ai.clone();
+    ai.timeout_secs = ai.timeout_secs.max(90);
+    let out = complete(&ai, MEETING_PROMPT, &format!("<transcript>\n{transcript}\n</transcript>"))?;
+    Ok(strip_wrapper(&out))
 }
 
 /// Command mode: apply a spoken instruction to the selected text (or write new text).

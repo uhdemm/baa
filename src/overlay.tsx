@@ -72,7 +72,7 @@ function Overlay() {
 
   const head = (
     <div className="dbar-row">
-      <div className="face-wrap"><Face mood={v.mood} size={29} extras={state !== "listen"} /></div>
+      <div className="face-wrap"><Face mood={v.mood} size={29} extras={state !== "listen"} talk={state === "listen" ? level : undefined} /></div>
       {wave}
       <div className="divider" />
       <span className={`label ${state === "error" ? "err" : ""}`}>

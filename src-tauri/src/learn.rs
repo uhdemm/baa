@@ -84,6 +84,37 @@ pub fn watch(pasted: String, found: impl Fn(Vec<String>) + Send + 'static) {
     });
 }
 
+/// The text just before the caret in the focused box (up to `max` characters), so a
+/// new dictation can carry on the sentence instead of starting a fresh one.
+/// None where the app doesn't expose its text (games, canvases, some Electron apps).
+#[cfg(windows)]
+pub fn before_cursor(max: usize) -> Option<String> {
+    unsafe {
+        use windows::core::Interface;
+        use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
+        use windows::Win32::UI::Accessibility::{
+            CUIAutomation, IUIAutomation, IUIAutomationTextPattern, TextPatternRangeEndpoint_End,
+            TextPatternRangeEndpoint_Start, UIA_TextPatternId,
+        };
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let auto = CoCreateInstance::<_, IUIAutomation>(&CUIAutomation, None, CLSCTX_INPROC_SERVER).ok()?;
+        let el = auto.GetFocusedElement().ok()?;
+        let t = el.GetCurrentPattern(UIA_TextPatternId).ok()?.cast::<IUIAutomationTextPattern>().ok()?;
+        let caret = t.GetSelection().ok()?.GetElement(0).ok()?;
+        let range = t.DocumentRange().ok()?;
+        // the document from its start to where the caret (or selection) begins
+        range.MoveEndpointByRange(TextPatternRangeEndpoint_End, &caret, TextPatternRangeEndpoint_Start).ok()?;
+        let text = range.GetText(-1).ok()?.to_string();
+        let n = text.chars().count();
+        Some(text.chars().skip(n.saturating_sub(max)).collect())
+    }
+}
+
+#[cfg(not(windows))]
+pub fn before_cursor(_max: usize) -> Option<String> {
+    None
+}
+
 #[cfg(not(windows))]
 pub fn watch(_pasted: String, _found: impl Fn(Vec<String>) + Send + 'static) {}
 

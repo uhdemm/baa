@@ -13,9 +13,13 @@ import Prefs from "./pages/Prefs";
 import Ai from "./pages/Ai";
 import Look from "./pages/Look";
 import Setup from "./pages/Setup";
+import Notes from "./pages/Notes";
+import Style from "./pages/Style";
 
 const PAGES = [
   { id: "home", label: "Home", icon: "home", group: "Baa" },
+  { id: "notes", label: "Notes", icon: "notes", group: "Baa" },
+  { id: "style", label: "Style", icon: "style", group: "Baa" },
   { id: "models", label: "Models", icon: "models", group: "Baa" },
   { id: "words", label: "Words", icon: "words", group: "Baa" },
   { id: "apps", label: "Apps", icon: "apps", group: "Baa" },
@@ -124,6 +128,8 @@ export default function App() {
           <div className="page-inner">
             {error && <div className="banner err" onClick={() => setError(null)}>{error}</div>}
             {page === "home" && <Home {...props} />}
+            {page === "notes" && <Notes {...props} />}
+            {page === "style" && <Style {...props} />}
             {page === "models" && <Models {...props} />}
             {page === "words" && <Words {...props} />}
             {page === "apps" && <Apps {...props} />}
