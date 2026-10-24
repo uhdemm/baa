@@ -1,0 +1,59 @@
+[package]
+name = "baa"
+version = "0.1.0"
+description = "Baa: talk instead of type"
+authors = ["Adam"]
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "baa_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "protocol-asset"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+parking_lot = "0.12"
+chrono = "0.4"
+regex = "1"
+sha2 = "0.10"
+hex = "0.4"
+# audio in + resampling to the 16 kHz the speech models want
+cpal = "0.16"
+rubato = "0.16"
+# the speech engine: every GGUF speech model (Parakeet, Whisper, Canary, Qwen3-ASR...)
+transcribe-cpp = { version = "0.4.0", default-features = false, features = ["serde"] }
+# paste into the focused app
+arboard = "3"
+enigo = "0.6"
+rusqlite = { version = "0.37", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+futures-util = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+transcribe-cpp = { version = "0.4.0", default-features = false, features = ["serde", "vulkan"] }
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+transcribe-cpp = { version = "0.4.0", default-features = false, features = ["serde", "metal"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

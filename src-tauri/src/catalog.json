@@ -1,0 +1,173 @@
+{
+ "models": [
+  {
+   "id": "parakeet-tdt-0.6b-v3",
+   "name": "Parakeet v3",
+   "description": "Fast and accurate. 25 European languages, detects the language itself.",
+   "tier": "recommended",
+   "repo": "handy-computer/parakeet-tdt-0.6b-v3-gguf",
+   "revision": "d8d8c32cb2017c57e5307767343e97870f8a7f53",
+   "filename": "parakeet-tdt-0.6b-v3-Q8_0.gguf",
+   "size": 739508576,
+   "sha256": "5859f77944efcd8eafa23a6350731960b2b55b2203df51f319665c807d802cc7",
+   "license": "cc-by-4.0"
+  },
+  {
+   "id": "parakeet-unified-en-0.6b",
+   "name": "Parakeet English",
+   "description": "Best English accuracy for its size. English only.",
+   "tier": "recommended",
+   "repo": "handy-computer/parakeet-unified-en-0.6b-gguf",
+   "revision": "843b1b175ace04f5a89d379c79e2518c0d065b25",
+   "filename": "parakeet-unified-en-0.6b-Q8_0.gguf",
+   "size": 731357568,
+   "sha256": "4b50b6dd862bf6e346929aaf4f5eaacec003bfa3f56462d6c874b41ef2f38795",
+   "license": "other"
+  },
+  {
+   "id": "whisper-large-v3-turbo",
+   "name": "Whisper Turbo",
+   "description": "Whisper's best speed/accuracy mix. 99 languages. Needs a GPU to feel quick.",
+   "tier": "great",
+   "repo": "handy-computer/whisper-large-v3-turbo-gguf",
+   "revision": "18ada752005f5fddef499256f9a458d0b37a203a",
+   "filename": "whisper-large-v3-turbo-Q8_0.gguf",
+   "size": 886381728,
+   "sha256": "257aa7ec9121c22c167d5e2c49e3e76b4ba0e6e27ebc13074eba0a80f8190220",
+   "license": "mit"
+  },
+  {
+   "id": "canary-1b-v2",
+   "name": "Canary 1B v2",
+   "description": "Very accurate, 25 languages, can translate to English.",
+   "tier": "great",
+   "repo": "handy-computer/canary-1b-v2-gguf",
+   "revision": "692af661b140183b60e44f55ad03c59e1e77d078",
+   "filename": "canary-1b-v2-Q8_0.gguf",
+   "size": 1144290016,
+   "sha256": "224f83d1bc487b3303b495a7d6874912fdece93de19d1a04b550829c30a5d289",
+   "license": "cc-by-4.0"
+  },
+  {
+   "id": "Qwen3-ASR-0.6B",
+   "name": "Qwen3-ASR 0.6B",
+   "description": "Strong multilingual model incl. Chinese, Japanese, Korean.",
+   "tier": "great",
+   "repo": "handy-computer/Qwen3-ASR-0.6B-gguf",
+   "revision": "7e7c69a577fa2725dfedbe34b5e999336e30a19b",
+   "filename": "Qwen3-ASR-0.6B-Q8_0.gguf",
+   "size": 850423456,
+   "sha256": "f081b2d5e23bd669d92cc331d722a8a0681943b8e6f34b48996fd5c319b5acd8",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "whisper-small",
+   "name": "Whisper Small",
+   "description": "Small and dependable. 99 languages.",
+   "tier": "light",
+   "repo": "handy-computer/whisper-small-gguf",
+   "revision": "4afdc7942ecf1997f359deae48a63506b062eac4",
+   "filename": "whisper-small-Q8_0.gguf",
+   "size": 269751136,
+   "sha256": "9b9c8811bbcc82a7766f0fb0925614bdacb0923b2cc630daeac17108b655b860",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "parakeet-tdt_ctc-110m",
+   "name": "Parakeet Mini",
+   "description": "Tiny and quick. English. Good for older laptops.",
+   "tier": "light",
+   "repo": "handy-computer/parakeet-tdt_ctc-110m-gguf",
+   "revision": "1c3f0d5378fdd358905cc410a93ed9e64f52d170",
+   "filename": "parakeet-tdt_ctc-110m-Q8_0.gguf",
+   "size": 135373280,
+   "sha256": "7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296",
+   "license": "cc-by-4.0"
+  },
+  {
+   "id": "canary-180m-flash",
+   "name": "Canary Flash",
+   "description": "Tiny, fast, 4 languages.",
+   "tier": "light",
+   "repo": "handy-computer/canary-180m-flash-gguf",
+   "revision": "8b01fc77ac169a0a05c5c0332bbfe54acf65c26f",
+   "filename": "canary-180m-flash-Q8_0.gguf",
+   "size": 218447648,
+   "sha256": "f942ab746040b531a29ab78ca3afc8dc9564efd8e4c942b5541e53644be9c408",
+   "license": "cc-by-4.0"
+  },
+  {
+   "id": "moonshine-base",
+   "name": "Moonshine",
+   "description": "The smallest. English. Runs on anything.",
+   "tier": "light",
+   "repo": "handy-computer/moonshine-base-gguf",
+   "revision": "124f8cf8d3c1c56ad0f6ebc44aaafc0622e62d97",
+   "filename": "moonshine-base-Q8_0.gguf",
+   "size": 77476480,
+   "sha256": "7f0027dfd857d310b63a85ef57cadf183da712cc374f85a648f8bc18aaa2efc8",
+   "license": "mit"
+  },
+  {
+   "id": "whisper-medium",
+   "name": "Whisper Medium",
+   "description": "Older Whisper, accurate but slow on CPU.",
+   "tier": "more",
+   "repo": "handy-computer/whisper-medium-gguf",
+   "revision": "60cfb00405a9a5bb85ee347ef93b68df7a311dc5",
+   "filename": "whisper-medium-Q8_0.gguf",
+   "size": 831538144,
+   "sha256": "09e6a65e7de377aa5b10bae24608bc6f8ca2ed04b3993ef10d4a02bcd9a82adf",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "whisper-large-v3",
+   "name": "Whisper Large v3",
+   "description": "Biggest Whisper. Needs a strong GPU.",
+   "tier": "more",
+   "repo": "handy-computer/whisper-large-v3-gguf",
+   "revision": "274ad1d1cf680b7ee53cc70f78461394cd3a344b",
+   "filename": "whisper-large-v3-Q8_0.gguf",
+   "size": 1668741440,
+   "sha256": "2fa1a5f179f8a511a53e2108db270aa4af3ce08cd976af4180e2854666bb4ba3",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "Voxtral-Mini-3B-2507",
+   "name": "Voxtral Mini 3B",
+   "description": "Large and very accurate. Needs a strong GPU.",
+   "tier": "more",
+   "repo": "handy-computer/Voxtral-Mini-3B-2507-gguf",
+   "revision": "3d4e8e74a2ada47b400b2957575b2a9c058efe80",
+   "filename": "Voxtral-Mini-3B-2507-Q8_0.gguf",
+   "size": 5000084128,
+   "sha256": "06b4dd04e32953ccab0d417125bdd728ec031431596ed5e80123c3c66f29ddc2",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "granite-speech-4.1-2b",
+   "name": "Granite Speech 2B",
+   "description": "IBM's accurate English/European model. Needs a GPU.",
+   "tier": "more",
+   "repo": "handy-computer/granite-speech-4.1-2b-gguf",
+   "revision": "a9dbf6ea76e87ef0deb6c2cd26f0bb533dd38756",
+   "filename": "granite-speech-4.1-2b-Q8_0.gguf",
+   "size": 2559878944,
+   "sha256": "666d2f7736bfa140f44d67ba7bcb0827aa5718462f13850af294d72c1f09b218",
+   "license": "apache-2.0"
+  },
+  {
+   "id": "SenseVoiceSmall",
+   "name": "SenseVoice Small",
+   "description": "Fast, great for Chinese, Cantonese, Japanese, Korean.",
+   "tier": "more",
+   "repo": "handy-computer/SenseVoiceSmall-gguf",
+   "revision": "ff8f085a8fa2e5ccae0e849ef19ebc6dc18e608b",
+   "filename": "SenseVoiceSmall-Q8_0.gguf",
+   "size": 252684608,
+   "sha256": "6c759ee4c9748c9b3f7a5a60ca74f0f7e685fb9d45d1378fce7cfd62f59adf29",
+   "license": "other"
+  }
+ ],
+ "vad": null
+}
