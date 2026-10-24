@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { api, Settings } from "./api";
+import { applyAppearance } from "./appearance";
 import Face from "./ui/Face";
 import { Icon, Keys } from "./ui/controls";
 import Home from "./pages/Home";
@@ -9,15 +11,17 @@ import Words from "./pages/Words";
 import Apps from "./pages/Apps";
 import Prefs from "./pages/Prefs";
 import Ai from "./pages/Ai";
+import Look from "./pages/Look";
 import Setup from "./pages/Setup";
 
 const PAGES = [
-  { id: "home", label: "Home", icon: "home" },
-  { id: "models", label: "Models", icon: "models" },
-  { id: "words", label: "Words", icon: "words" },
-  { id: "apps", label: "Apps", icon: "apps" },
-  { id: "ai", label: "AI", icon: "ai" },
-  { id: "settings", label: "Settings", icon: "settings" },
+  { id: "home", label: "Home", icon: "home", group: "Baa" },
+  { id: "models", label: "Models", icon: "models", group: "Baa" },
+  { id: "words", label: "Words", icon: "words", group: "Baa" },
+  { id: "apps", label: "Apps", icon: "apps", group: "Baa" },
+  { id: "ai", label: "AI", icon: "ai", group: "Settings" },
+  { id: "look", label: "Appearance", icon: "look", group: "Settings" },
+  { id: "settings", label: "General", icon: "settings", group: "Settings" },
 ] as const;
 type PageId = (typeof PAGES)[number]["id"];
 
@@ -29,6 +33,20 @@ const fromHash = (): PageId => {
 export interface PageProps {
   settings: Settings;
   save: (s: Settings) => void;
+}
+
+const inTauri = document.documentElement.classList.contains("tauri"); // set in main.tsx before the dev mock
+
+/** The red / yellow / green window buttons. Close hides to the tray (Baa keeps running). */
+function Lights() {
+  const w = () => getCurrentWindow();
+  return (
+    <div className="lights">
+      <button className="close" aria-label="Close" onClick={() => inTauri && w().close()} />
+      <button className="min" aria-label="Minimize" onClick={() => inTauri && w().minimize()} />
+      <button className="max" aria-label="Zoom" onClick={() => inTauri && w().toggleMaximize()} />
+    </div>
+  );
 }
 
 export default function App() {
@@ -48,6 +66,8 @@ export default function App() {
     const un2 = listen("settings-changed", () => { if (!pending.current) reload(); });
     return () => { un1.then((f) => f()); un2.then((f) => f()); };
   }, [reload]);
+
+  useEffect(() => { if (settings?.appearance) applyAppearance(settings.appearance); }, [settings?.appearance]);
 
   // Edits show instantly; the write happens once typing pauses, and the backend's
   // reply never overwrites newer keystrokes.
@@ -70,30 +90,49 @@ export default function App() {
   if (!settings) return null;
   const props = { settings, save };
   if (!settings.onboarded) return <Setup {...props} />;
+  const current = PAGES.find((p) => p.id === page)!;
 
   return (
     <div className="shell">
-      <nav className="side">
-        <div className="brand"><Face size={22} /><b>Baa</b></div>
-        {PAGES.map((p) => (
-          <button key={p.id} className={`nav ${page === p.id ? "on" : ""}`} onClick={() => setPage(p.id)}>
-            <Icon name={p.icon} size={16} />{p.label}
-          </button>
+      <nav className="side glass">
+        <div className="titlebar" data-tauri-drag-region>
+          <Lights />
+          <div className="drag" data-tauri-drag-region />
+        </div>
+        <div className="brand"><Face size={18} /><b>Baa</b></div>
+        {(["Baa", "Settings"] as const).map((g) => (
+          <div key={g}>
+            {g === "Settings" && <div className="nav-head">Settings</div>}
+            {PAGES.filter((p) => p.group === g).map((p) => (
+              <button key={p.id} className={`nav ${page === p.id ? "on" : ""}`} onClick={() => setPage(p.id)}>
+                <Icon name={p.icon} size={16} />{p.label}
+              </button>
+            ))}
+          </div>
         ))}
         <div className="side-foot">
           <span>Hold to dictate</span>
           <Keys combo={settings.shortcut} />
         </div>
       </nav>
-      <main className="page">
-        {error && <div className="banner err" onClick={() => setError(null)}>{error}</div>}
-        {page === "home" && <Home {...props} />}
-        {page === "models" && <Models {...props} />}
-        {page === "words" && <Words {...props} />}
-        {page === "apps" && <Apps {...props} />}
-        {page === "ai" && <Ai {...props} />}
-        {page === "settings" && <Prefs {...props} />}
-      </main>
+      <div className="main">
+        <header className="toolbar" data-tauri-drag-region>
+          <h1 data-tauri-drag-region>{current.label}</h1>
+          <div className="spacer" data-tauri-drag-region />
+        </header>
+        <main className="page">
+          <div className="page-inner">
+            {error && <div className="banner err" onClick={() => setError(null)}>{error}</div>}
+            {page === "home" && <Home {...props} />}
+            {page === "models" && <Models {...props} />}
+            {page === "words" && <Words {...props} />}
+            {page === "apps" && <Apps {...props} />}
+            {page === "ai" && <Ai {...props} />}
+            {page === "look" && <Look {...props} />}
+            {page === "settings" && <Prefs {...props} />}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

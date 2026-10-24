@@ -58,20 +58,45 @@ pub(crate) fn open_main(app: &AppHandle, page: Option<&str>) {
         Some(p) => format!("index.html#{p}"),
         None => "index.html".into(),
     };
-    let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(url.into()))
+    let look = app.state::<Arc<AppState>>().settings.get().appearance;
+    let built = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(url.into()))
         .title("Baa")
-        // the design system is light-only; keep the title bar matching it
+        // the design system is light-only
         .theme(Some(tauri::Theme::Light))
-        // Windows 11 Mica: the wallpaper glows softly through the window, always in its light tint
+        // Apple-style window: our own title bar with the window dots, rounded corners
+        .decorations(false)
+        .shadow(true)
         .transparent(true)
-        .effects(tauri::utils::config::WindowEffectsConfig {
-            effects: vec![tauri::window::Effect::MicaLight],
-            ..Default::default()
-        })
+        .effects(window_effects(look.wallpaper_through))
         .inner_size(980.0, 680.0)
         .min_inner_size(760.0, 520.0)
         .center()
         .build();
+    #[cfg(windows)]
+    if let Ok(w) = built {
+        round_corners(&w);
+    }
+}
+
+/// Windows 11 Mica in its light tint: the wallpaper glows softly through the sidebar.
+fn window_effects(on: bool) -> tauri::utils::config::WindowEffectsConfig {
+    tauri::utils::config::WindowEffectsConfig {
+        effects: if on { vec![tauri::window::Effect::MicaLight] } else { vec![] },
+        ..Default::default()
+    }
+}
+
+/// Frameless windows are square by default; ask Windows 11 for its rounded corners.
+#[cfg(windows)]
+fn round_corners(w: &tauri::WebviewWindow) {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND};
+    if let Ok(h) = w.hwnd() {
+        let pref = DWMWCP_ROUND;
+        unsafe {
+            let _ = DwmSetWindowAttribute(HWND(h.0 as _), DWMWA_WINDOW_CORNER_PREFERENCE, &pref as *const _ as _, std::mem::size_of_val(&pref) as u32);
+        }
+    }
 }
 
 // ---------- commands for the settings window ----------
@@ -98,7 +123,14 @@ fn set_settings(app: AppHandle, st: S, settings: Settings) -> Result<Settings, S
         }
         *st.startup_warning.lock() = None;
     }
+    if old.appearance.wallpaper_through != settings.appearance.wallpaper_through {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.set_effects(window_effects(settings.appearance.wallpaper_through));
+        }
+    }
     st.settings.set(settings.clone()).map_err(err)?;
+    // the pop-up restyles itself live when the look changes
+    let _ = app.emit("appearance-changed", &settings.appearance);
     Ok(settings)
 }
 

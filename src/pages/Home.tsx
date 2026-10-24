@@ -4,7 +4,6 @@ import { api, Entry, Stats } from "../api";
 import type { PageProps } from "../App";
 import Face from "../ui/Face";
 import Wave from "../ui/Wave";
-import { Icon } from "../ui/controls";
 
 const PAGE = 50;
 
@@ -42,35 +41,31 @@ export default function Home({ settings }: PageProps) {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Ready when you are.</h1>
-        <p>Hold {settings.shortcut} to start dictating from anywhere.</p>
-      </div>
       {!settings.model && <div className="banner warn">No speech model yet. Open Models and download one to start.</div>}
-      <div className="hero-bar">
+      <div className="hero">
         <div className="dbar">
-          <div className="face-wrap"><Face size={33} /></div>
+          <div className="face-wrap"><Face size={29} /></div>
           <Wave style="idle" />
           <div className="divider" />
-          <span className="label">Press {settings.shortcut.replace("+", " ")} to dictate...</span>
+          <span className="label">Hold {settings.shortcut.replace("+", " ")} to dictate</span>
           <i className="caret" />
         </div>
+        <p>Ready when you are. Your words land wherever you're typing.</p>
       </div>
 
       {stats && (
-        <div className="features">
-          <div className="feature"><div className="fi"><Icon name="fast" /></div><b>{stats.words_today.toLocaleString()}</b><span>words today</span></div>
-          <div className="feature"><div className="fi"><Icon name="words" /></div><b>{stats.total_words.toLocaleString()}</b><span>words all time</span></div>
-          <div className="feature"><div className="fi"><Icon name="history" /></div><b>{savedLabel}</b><span>saved vs typing</span></div>
-          <div className="feature"><div className="fi"><Icon name="check" /></div><b>{stats.streak_days}</b><span>day streak</span></div>
+        <div className="stats">
+          <div className="stat"><b>{stats.words_today.toLocaleString()}</b><span>Words today</span></div>
+          <div className="stat"><b>{stats.total_words.toLocaleString()}</b><span>All time</span></div>
+          <div className="stat"><b>{savedLabel}</b><span>Saved vs typing</span></div>
+          <div className="stat"><b>{stats.streak_days}</b><span>Day streak</span></div>
         </div>
       )}
 
       <div className="section">
         <h2>History</h2>
-        <p className="lead">Everything you've dictated, newest first. Stays on this PC.</p>
         <div className="searchbar">
-          <input className="input" style={{ flex: 1, maxWidth: 360 }} placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="input" style={{ flex: 1, maxWidth: 300 }} placeholder="Search history" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="btn" onClick={() => api.repasteLast()}>Paste last again</button>
           {rows.length > 0 && <button className="btn ghost" onClick={() => api.historyClear().then(load)}>Clear all</button>}
         </div>

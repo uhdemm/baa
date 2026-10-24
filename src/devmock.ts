@@ -2,7 +2,8 @@
 // calls with sample data so every screen can be previewed. Never bundled into the app.
 const settings = {
   shortcut: "Ctrl+Space", mode: "hybrid", command_shortcut: "Alt+Shift+Space", repaste_shortcut: "Alt+Shift+V",
-  live_preview: true, learn_words: true, word_suggestions: ["Remotion"],
+  live_preview: true, learn_words: true,
+  appearance: { material: "glass", thickness: 2, tint: "#ffffff", tint_strength: 0, accent: "#0d6fff", roundness: 1, wallpaper_through: true, bar_size: "regular", show_face: true }, word_suggestions: ["Remotion"],
   ai: { cleanup: false, provider: "groq", base_url: "", model: "llama-3.3-70b-versatile", prompt: "You clean up dictated text.", timeout_secs: 6 },
   model: "parakeet-tdt-0.6b-v3", imported_models: [], language: null, microphone: null, auto_send: "off",
   restore_clipboard: true, trailing_space: true, remove_fillers: true, use_vad: true,

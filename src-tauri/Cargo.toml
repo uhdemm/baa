@@ -1,6 +1,6 @@
 [package]
 name = "baa"
-version = "0.3.0"
+version = "0.4.0"
 description = "Baa: talk instead of type"
 authors = ["Adam"]
 edition = "2021"
@@ -53,6 +53,7 @@ windows = { version = "0.61", features = [
   "Win32_System_Com",
   "Win32_System_Ole",
   "Win32_System_Variant",
+  "Win32_Graphics_Dwm",
 ] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

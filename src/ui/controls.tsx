@@ -170,6 +170,7 @@ const PATHS: Record<string, string> = {
   trash: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12",
   check: "M5 12.5l4.5 4.5L19 7.5",
   download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
+  look: "M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.4-1.3-1.8-1.3-3 0-1 .8-1.8 1.8-1.8h2.2a3.8 3.8 0 0 0 3.8-3.8C20.3 6.7 16.6 3.5 12 3.5zM7.5 12a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM10 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM14.5 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2z",
 };
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS | string; size?: number }) {

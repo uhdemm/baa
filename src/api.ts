@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { Appearance } from "./appearance";
 
 export type Mode = "hybrid" | "hold" | "toggle";
 export type AutoSend = "off" | "enter" | "ctrl_enter";
@@ -23,6 +24,7 @@ export interface Settings {
   repaste_shortcut: string;
   live_preview: boolean;
   ai: AiSettings;
+  appearance: Appearance;
   learn_words: boolean;
   word_suggestions: string[];
   model: string | null;

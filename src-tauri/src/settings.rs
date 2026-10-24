@@ -72,6 +72,45 @@ impl Default for AiSettings {
     }
 }
 
+/// How Baa looks. Values follow the macOS 26 kit: materials are a #F6F6F6 tint at
+/// 36/48/60/72/84% (Ultra Thin..Ultra Thick); Liquid Glass adds a light rim.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(default)]
+pub struct Appearance {
+    /// "glass" (Liquid Glass) | "frosted" (classic material) | "solid"
+    pub material: String,
+    /// 0 Ultra Thin .. 4 Ultra Thick
+    pub thickness: u8,
+    /// Glass tint colour (hex) and how strongly it shows (0..1)
+    pub tint: String,
+    pub tint_strength: f32,
+    /// Accent colour for selections, switches, buttons (hex)
+    pub accent: String,
+    /// Multiplier on every corner radius (0.5 .. 1.5)
+    pub roundness: f32,
+    /// Let the desktop wallpaper glow through the sidebar (Windows 11 Mica)
+    pub wallpaper_through: bool,
+    /// Dictation pop-up size: "compact" | "regular" | "large"
+    pub bar_size: String,
+    pub show_face: bool,
+}
+
+impl Default for Appearance {
+    fn default() -> Self {
+        Appearance {
+            material: "glass".into(),
+            thickness: 2,
+            tint: "#ffffff".into(),
+            tint_strength: 0.0,
+            accent: "#0d6fff".into(),
+            roundness: 1.0,
+            wallpaper_through: true,
+            bar_size: "regular".into(),
+            show_face: true,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct Settings {
@@ -84,6 +123,7 @@ pub struct Settings {
     /// Show the words in the bar while you talk.
     pub live_preview: bool,
     pub ai: AiSettings,
+    pub appearance: Appearance,
     /// Watch for words you fix after pasting and offer to remember them.
     pub learn_words: bool,
     pub word_suggestions: Vec<String>,
@@ -120,6 +160,7 @@ impl Default for Settings {
             repaste_shortcut: "Alt+Shift+V".into(),
             live_preview: true,
             ai: AiSettings::default(),
+            appearance: Appearance::default(),
             learn_words: true,
             word_suggestions: vec![],
             model: None,

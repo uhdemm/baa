@@ -5,6 +5,8 @@ import ReactDOM from "react-dom/client";
 import { listen } from "@tauri-apps/api/event";
 import Face, { Mood } from "./ui/Face";
 import Wave from "./ui/Wave";
+import { invoke } from "@tauri-apps/api/core";
+import { applyAppearance, type Appearance } from "./appearance";
 import "./styles.css";
 
 document.documentElement.classList.add("overlay");
@@ -38,6 +40,14 @@ function Overlay() {
   const prev = useRef<State>("idle");
   const body = useRef<HTMLDivElement>(null);
 
+  // the pop-up wears the same material/accent/size as the app, and restyles live
+  useEffect(() => {
+    if (demo) return;
+    invoke<{ appearance: Appearance }>("get_settings").then((s) => s.appearance && applyAppearance(s.appearance)).catch(() => {});
+    const un = listen<Appearance>("appearance-changed", (e) => applyAppearance(e.payload));
+    return () => void un.then((f) => f());
+  }, []);
+
   useEffect(() => {
     if (demo) return;
     const a = listen<OverlayEvent>("overlay-state", (e) => {
@@ -62,7 +72,7 @@ function Overlay() {
 
   const head = (
     <div className="dbar-row">
-      <div className="face-wrap"><Face mood={v.mood} size={31} extras={state !== "listen"} /></div>
+      <div className="face-wrap"><Face mood={v.mood} size={29} extras={state !== "listen"} /></div>
       {wave}
       <div className="divider" />
       <span className={`label ${state === "error" ? "err" : ""}`}>
