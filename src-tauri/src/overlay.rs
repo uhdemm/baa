@@ -12,6 +12,7 @@ const LABEL: &str = "overlay";
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let w = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("overlay.html".into()))
         .title("Baa bar")
+        .theme(Some(tauri::Theme::Light))
         .inner_size(WIDTH, HEIGHT)
         .decorations(false)
         .transparent(true)

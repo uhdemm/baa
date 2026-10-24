@@ -60,6 +60,8 @@ pub(crate) fn open_main(app: &AppHandle, page: Option<&str>) {
     };
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App(url.into()))
         .title("Baa")
+        // the design system is light-only; keep the title bar matching it
+        .theme(Some(tauri::Theme::Light))
         .inner_size(980.0, 680.0)
         .min_inner_size(760.0, 520.0)
         .center()
