@@ -3,6 +3,7 @@
 mod audio;
 mod engine;
 mod history;
+mod keyhook;
 mod models;
 mod overlay;
 mod paste;
@@ -216,9 +217,38 @@ fn hide_later(app: &AppHandle, ms: u64) {
 fn register_shortcut(app: &AppHandle, shortcut: &str) -> anyhow::Result<()> {
     let gs = app.global_shortcut();
     gs.unregister_all()?;
+    // Modifier-only chords (Ctrl+Win) go through our keyboard hook instead.
+    if let Some(mask) = keyhook::parse_modifier_only(shortcut) {
+        keyhook::set_chord(mask, chord_sender(app));
+        return Ok(());
+    }
+    keyhook::set_chord(0, chord_sender(app));
     let sc: Shortcut = shortcut.parse().map_err(|e| anyhow::anyhow!("Invalid shortcut \"{shortcut}\": {e}"))?;
     gs.register(sc)?;
     Ok(())
+}
+
+/// The hook must return to Windows within milliseconds, so chord events are queued
+/// to one worker thread that runs them in order.
+fn chord_sender(app: &AppHandle) -> impl Fn(keyhook::ChordEvent) + Send + Sync + 'static {
+    static TX: std::sync::OnceLock<Mutex<std::sync::mpsc::Sender<keyhook::ChordEvent>>> = std::sync::OnceLock::new();
+    let tx = TX.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<keyhook::ChordEvent>();
+        let app = app.clone();
+        std::thread::spawn(move || {
+            for e in rx {
+                match e {
+                    keyhook::ChordEvent::Pressed => on_shortcut(&app, true),
+                    keyhook::ChordEvent::Released => on_shortcut(&app, false),
+                    keyhook::ChordEvent::Aborted => cancel_recording(&app),
+                }
+            }
+        });
+        Mutex::new(tx)
+    });
+    move |e| {
+        let _ = tx.lock().send(e);
+    }
 }
 
 // ---------- windows ----------
