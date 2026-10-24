@@ -157,15 +157,22 @@ pub fn list_models(ai: &AiSettings) -> anyhow::Result<Vec<String>> {
 
 /// Dictation clean-up. Falls back to the original text on any failure so a slow
 /// or offline AI never eats what you said.
-pub fn cleanup(ai: &AiSettings, text: &str, app: Option<&str>, custom_words: &[String]) -> Result<String, String> {
+pub fn cleanup(ai: &AiSettings, text: &str, app: Option<&str>, title: Option<&str>, custom_words: &[String]) -> Result<String, String> {
     let mut system = ai.prompt.clone();
-    if let Some(a) = app {
-        system.push_str(&format!("\n\nThe text will be pasted into {a}; match what fits there."));
-    }
     if !custom_words.is_empty() {
-        system.push_str(&format!("\n\nSpell these the way they are written here: {}.", custom_words.join(", ")));
+        system.push_str(&format!("
+
+NAMES AND TERMS
+Spell these exactly as written here: {}.", custom_words.join(", ")));
     }
-    let user = format!("<dictation>\n{text}\n</dictation>");
+    let context = match (app, title.filter(|t| !t.trim().is_empty())) {
+        (Some(a), Some(t)) => format!("{a}: {t}"),
+        (Some(a), None) => a.to_string(),
+        (None, Some(t)) => t.to_string(),
+        (None, None) => "unknown".into(),
+    };
+    let user = format!("<context>{context}</context>
+<dictation>{text}</dictation>");
     match complete(ai, &system, &user) {
         Ok(out) if !out.is_empty() => Ok(strip_wrapper(&out)),
         Ok(_) => Err("AI returned nothing".into()),

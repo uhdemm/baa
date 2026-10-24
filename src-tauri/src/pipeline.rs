@@ -237,7 +237,7 @@ fn dictate(
     let mut spoken = raw.clone();
     if s.ai.cleanup && ai::ready(&s.ai) {
         overlay_state(app, "think", Some("Polishing…".into()));
-        match ai::cleanup(&s.ai, &raw, focused.as_deref(), &s.custom_words) {
+        match ai::cleanup(&s.ai, &raw, focused.as_deref(), paste::focused_title().as_deref(), &s.custom_words) {
             Ok(t) => spoken = t,
             Err(e) => eprintln!("baa: AI cleanup skipped: {e}"), // paste what was said instead
         }

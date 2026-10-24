@@ -114,7 +114,8 @@ export const api = {
   micTestStop: () => invoke<void>("mic_test_stop"),
   aiStatus: () => invoke<AiStatus>("ai_status"),
   setApiKey: (provider: string, key: string) => invoke<void>("set_api_key", { provider, key }),
-  testAi: (sample: string) => invoke<string>("test_ai", { sample }),
+  testAi: (sample: string, context?: string) => invoke<string>("test_ai", { sample, context: context ?? null }),
+  defaultCleanupPrompt: () => invoke<string>("default_cleanup_prompt"),
   listAiModels: () => invoke<string[]>("list_ai_models"),
 };
 

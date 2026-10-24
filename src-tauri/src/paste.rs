@@ -105,6 +105,23 @@ pub fn focused_app() -> Option<String> {
     }
 }
 
+/// Title of the focused window ("Inbox - Gmail - Google Chrome"), so the clean-up
+/// can tell an email from a chat from a code editor.
+#[cfg(windows)]
+pub fn focused_title() -> Option<String> {
+    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowTextW};
+    unsafe {
+        let mut buf = [0u16; 512];
+        let n = GetWindowTextW(GetForegroundWindow(), &mut buf);
+        (n > 0).then(|| String::from_utf16_lossy(&buf[..n as usize]))
+    }
+}
+
+#[cfg(not(windows))]
+pub fn focused_title() -> Option<String> {
+    None
+}
+
 #[cfg(not(windows))]
 pub fn focused_app() -> Option<String> {
     None

@@ -26,7 +26,17 @@ const PROVIDERS: Provider[] = [
   { id: "custom", label: "Other (OpenAI-compatible)", model: "", needsKey: false },
 ];
 
-const SAMPLE = "um so i was thinking we could uh move the meeting to thursday no wait friday and then send the notes to big square";
+const SAMPLE = "hey sarah um thanks for sending these over i looked through them and they look good just two things first can you double check the march total and second can we add the ad spend column thanks adam";
+
+// "Pretend I'm typing into..." for the test box
+const DESTINATIONS: [string, string][] = [
+  ["outlook.exe: RE: Q3 numbers", "Outlook (email)"],
+  ["discord.exe: #general", "Discord (chat)"],
+  ["notion.exe: Meeting notes", "Notion (notes)"],
+  ["Code.exe: main.rs", "VS Code"],
+  ["chrome.exe: ChatGPT", "ChatGPT"],
+  ["chrome.exe: Google Search", "A search box"],
+];
 
 export default function Ai({ settings, save }: PageProps) {
   const ai = settings.ai;
@@ -35,6 +45,7 @@ export default function Ai({ settings, save }: PageProps) {
   const [sample, setSample] = useState(SAMPLE);
   const [result, setResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [dest, setDest] = useState(DESTINATIONS[0][0]);
   const provider = PROVIDERS.find((p) => p.id === ai.provider) ?? PROVIDERS[0];
 
   const refresh = () => api.aiStatus().then(setStatus);
@@ -59,7 +70,7 @@ export default function Ai({ settings, save }: PageProps) {
   const test = async () => {
     setTesting(true);
     setResult(null);
-    try { setResult(await api.testAi(sample)); } catch (e) { setResult(`Error: ${e}`); }
+    try { setResult(await api.testAi(sample, dest)); } catch (e) { setResult(`Error: ${e}`); }
     setTesting(false);
   };
 
@@ -116,15 +127,20 @@ export default function Ai({ settings, save }: PageProps) {
 
       <div className="section">
         <h2>Clean-up instructions</h2>
-        <p className="lead">What "clean up" means. The app you're typing into and your custom words are added automatically.</p>
-        <textarea style={{ minHeight: 130 }} value={ai.prompt} onChange={(e) => set({ prompt: e.target.value })} />
+        <p className="lead">What "clean up" means. Baa also tells the AI which app and window you're typing into, plus your custom words.</p>
+        <textarea style={{ minHeight: 220, fontSize: 12, lineHeight: "17px" }} value={ai.prompt} onChange={(e) => set({ prompt: e.target.value })} />
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn" onClick={() => api.defaultCleanupPrompt().then((prompt) => set({ prompt }))}>Reset to default</button>
+        </div>
       </div>
 
       <div className="section">
         <h2>Try it</h2>
-        <p className="lead">Run the clean-up on some messy text.</p>
+        <p className="lead">Type something the way you'd say it, pick where it's going, and see what Baa would paste.</p>
         <textarea value={sample} onChange={(e) => setSample(e.target.value)} />
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+          <span className="muted">Pretend I'm typing into</span>
+          <Select width={190} value={dest} options={DESTINATIONS.map(([value, label]) => ({ value, label }))} onChange={setDest} />
           <button className="btn primary" onClick={test} disabled={testing || !status?.ready}>{testing ? "Asking…" : "Clean this up"}</button>
         </div>
         {result !== null && <p className="preview">{result}</p>}

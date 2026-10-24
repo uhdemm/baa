@@ -280,6 +280,11 @@ fn set_api_key(provider: String, key: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn default_cleanup_prompt() -> &'static str {
+    settings::DEFAULT_CLEANUP_PROMPT
+}
+
+#[tauri::command]
 async fn list_ai_models(st: S<'_>) -> Result<Vec<String>, String> {
     let ai_settings = st.settings.get().ai;
     tauri::async_runtime::spawn_blocking(move || ai::list_models(&ai_settings)).await.map_err(err)?.map_err(err)
@@ -287,9 +292,9 @@ async fn list_ai_models(st: S<'_>) -> Result<Vec<String>, String> {
 
 /// Runs the clean-up prompt on a sample so the user can see it work.
 #[tauri::command]
-async fn test_ai(st: S<'_>, sample: String) -> Result<String, String> {
+async fn test_ai(st: S<'_>, sample: String, context: Option<String>) -> Result<String, String> {
     let ai_settings = st.settings.get().ai;
-    tauri::async_runtime::spawn_blocking(move || ai::cleanup(&ai_settings, &sample, None, &[]))
+    tauri::async_runtime::spawn_blocking(move || ai::cleanup(&ai_settings, &sample, context.as_deref(), None, &[]))
         .await
         .map_err(err)?
 }
@@ -398,6 +403,7 @@ pub fn run() {
             ai_status,
             set_api_key,
             list_ai_models,
+            default_cleanup_prompt,
             test_ai
         ])
         .build(tauri::generate_context!())
