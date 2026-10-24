@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { AiSettings, AiStatus, api } from "../api";
 import type { PageProps } from "../App";
+import { Combobox, Keys, Row, Select, Toggle } from "../ui/controls";
 
 interface Provider {
   id: AiSettings["provider"];
   label: string;
-  model: string; // a sensible starting model; "Load models" shows the full list
+  model: string; // a sensible starting model; the picker lists the rest
   needsKey: boolean;
   keyUrl?: string;
   url?: string;
@@ -17,12 +18,12 @@ const PROVIDERS: Provider[] = [
   { id: "groq", label: "Groq", model: "llama-3.3-70b-versatile", needsKey: true, free: true, keyUrl: "https://console.groq.com/keys" },
   { id: "gemini", label: "Google Gemini", model: "gemini-2.5-flash", needsKey: true, free: true, keyUrl: "https://aistudio.google.com/apikey" },
   { id: "cerebras", label: "Cerebras", model: "gpt-oss-120b", needsKey: true, free: true, keyUrl: "https://cloud.cerebras.ai" },
-  { id: "openrouter", label: "OpenRouter (free models end in :free)", model: "", needsKey: true, free: true, keyUrl: "https://openrouter.ai/keys" },
-  { id: "freellmapi", label: "FreeLLMAPI (your local free-tier pool)", model: "", needsKey: false, free: true, url: "http://localhost:3001/v1" },
-  { id: "ollama", label: "Ollama (runs on this PC)", model: "", needsKey: false, free: true, url: "http://localhost:11434/v1" },
-  { id: "anthropic", label: "Claude (Anthropic)", model: "claude-opus-5-5", needsKey: true, keyUrl: "https://console.anthropic.com/settings/keys" },
+  { id: "openrouter", label: "OpenRouter", model: "", needsKey: true, free: true, keyUrl: "https://openrouter.ai/keys" },
+  { id: "freellmapi", label: "FreeLLMAPI (local)", model: "", needsKey: false, free: true, url: "http://localhost:3001/v1" },
+  { id: "ollama", label: "Ollama (this PC)", model: "", needsKey: false, free: true, url: "http://localhost:11434/v1" },
+  { id: "anthropic", label: "Claude", model: "claude-opus-5-5", needsKey: true, keyUrl: "https://console.anthropic.com/settings/keys" },
   { id: "openai", label: "OpenAI", model: "", needsKey: true, keyUrl: "https://platform.openai.com/api-keys" },
-  { id: "custom", label: "Other (OpenAI-compatible server)", model: "", needsKey: false },
+  { id: "custom", label: "Other (OpenAI-compatible)", model: "", needsKey: false },
 ];
 
 const SAMPLE = "um so i was thinking we could uh move the meeting to thursday no wait friday and then send the notes to big square";
@@ -34,128 +35,100 @@ export default function Ai({ settings, save }: PageProps) {
   const [sample, setSample] = useState(SAMPLE);
   const [result, setResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
-  const [modelErr, setModelErr] = useState<string | null>(null);
   const provider = PROVIDERS.find((p) => p.id === ai.provider) ?? PROVIDERS[0];
 
   const refresh = () => api.aiStatus().then(setStatus);
-  useEffect(() => void refresh(), [settings]);
+  useEffect(() => { refresh(); }, [ai.provider, ai.base_url]);
 
   const set = (patch: Partial<AiSettings>) => save({ ...settings, ai: { ...ai, ...patch } });
-  const hasKey = status?.keys.includes(ai.provider);
+  const hasKey = !!status?.keys.includes(ai.provider);
+  const needsKeyField = provider.needsKey || ai.provider === "custom" || ai.provider === "freellmapi";
+  const needsUrl = ai.provider === "ollama" || ai.provider === "custom" || ai.provider === "freellmapi";
+
+  // Stable per provider/server so the picker keeps its loaded list; waits for the settings write first.
+  const loadModels = useCallback(async () => {
+    await new Promise((r) => setTimeout(r, 300));
+    return api.listAiModels();
+  }, [ai.provider, ai.base_url, hasKey]);
 
   const saveKey = async () => {
     await api.setApiKey(ai.provider, key);
     setKey("");
     refresh();
   };
-
   const test = async () => {
     setTesting(true);
     setResult(null);
-    try {
-      setResult(await api.testAi(sample));
-    } catch (e) {
-      setResult(`Error: ${e}`);
-    }
+    try { setResult(await api.testAi(sample)); } catch (e) { setResult(`Error: ${e}`); }
     setTesting(false);
   };
 
   return (
     <>
-      <h1>AI</h1>
-      <p className="muted">
-        Optional. Speech-to-text always runs on your PC; this adds an AI pass on top. It powers <b>clean-up</b> (fixes
-        grammar, removes false starts, formats lists) and <b>command mode</b>: select text anywhere, hold{" "}
-        <kbd>{settings.command_shortcut}</kbd> and say what to do ("make this shorter", "translate to Spanish"). With
-        nothing selected, it writes new text.
-      </p>
+      <div className="page-head">
+        <h1>AI</h1>
+        <p>
+          Optional. Speech-to-text always runs on your PC; this adds an AI pass on top for clean-up and command mode
+          (select text, hold <Keys combo={settings.command_shortcut} />, say what to do).
+        </p>
+      </div>
       {status && (
-        <div className={`banner ${status.ready ? "" : "warn"}`}>
-          {status.ready ? "AI is set up." : "Not set up yet: add a key below, or pick Ollama to run a model on this PC."}
+        <div className={`banner ${status.ready ? "ok" : "warn"}`}>
+          {status.ready ? "AI is ready." : "Not set up yet. Groq, Gemini and Cerebras have free keys; Ollama runs on this PC."}
         </div>
       )}
-      <div className="form">
-        <label>Provider</label>
-        <select
-          value={ai.provider}
-          onChange={(e) => {
-            const p = PROVIDERS.find((x) => x.id === e.target.value)!;
-            set({ provider: p.id, model: p.model, base_url: "" });
-            setModels([]);
-            setModelErr(null);
-          }}
-        >
-          {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}{p.free ? " (free)" : ""}</option>)}
-        </select>
 
-        {(provider.needsKey || ai.provider === "custom" || ai.provider === "freellmapi") && (
-          <>
-            <label>API key</label>
-            <div className="row">
-              <input
-                type="password"
-                value={key}
-                placeholder={hasKey ? "Saved (type to replace)" : "Paste your key"}
-                onChange={(e) => setKey(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && key && saveKey()}
-              />
-              <button disabled={!key} onClick={saveKey}>Save</button>
-              {hasKey && <button className="ghost" onClick={() => api.setApiKey(ai.provider, "").then(refresh)}>Remove</button>}
-              {provider.keyUrl && <button className="ghost" onClick={() => openUrl(provider.keyUrl!)}>Get a key</button>}
-            </div>
-          </>
+      <div className="rows">
+        <Row title="Provider" desc={provider.free ? "Free to use" : "Paid, uses your account"}>
+          <Select width={240} value={ai.provider}
+            options={PROVIDERS.map((p) => ({ value: p.id, label: p.label, hint: p.free ? "free" : undefined }))}
+            onChange={(id) => { const p = PROVIDERS.find((x) => x.id === id)!; set({ provider: p.id, model: p.model, base_url: "" }); }} />
+        </Row>
+
+        {needsKeyField && (
+          <Row title="API key" desc={hasKey ? "Saved in Windows Credential Manager" : provider.needsKey ? "Needed to use this provider" : "Only if your server asks for one"}>
+            <input type="password" style={{ width: 210 }} value={key} placeholder={hasKey ? "•••••••• saved" : "Paste your key"}
+              onChange={(e) => setKey(e.target.value)} onKeyDown={(e) => e.key === "Enter" && key && saveKey()} />
+            {key ? <button className="btn primary" onClick={saveKey}>Save</button>
+              : hasKey ? <button className="btn ghost" onClick={() => api.setApiKey(ai.provider, "").then(refresh)}>Remove</button>
+              : provider.keyUrl ? <button className="btn" onClick={() => openUrl(provider.keyUrl!)}>Get a key</button> : null}
+          </Row>
         )}
 
-        {(ai.provider === "ollama" || ai.provider === "custom" || ai.provider === "freellmapi") && (
-          <>
-            <label>Server address</label>
-            <input value={ai.base_url} placeholder={provider.url ?? "https://…/v1"} onChange={(e) => set({ base_url: e.target.value })} />
-          </>
+        {needsUrl && (
+          <Row title="Server address" desc="Where the server is running">
+            <input style={{ width: 300 }} value={ai.base_url} placeholder={provider.url ?? "https://…/v1"} onChange={(e) => set({ base_url: e.target.value })} />
+          </Row>
         )}
 
-        <label>Model</label>
-        <div className="row">
-          <input list="ai-models" value={ai.model} placeholder="model name" onChange={(e) => set({ model: e.target.value })} />
-          <datalist id="ai-models">{models.map((m) => <option key={m} value={m} />)}</datalist>
-          <button
-            className="ghost"
-            onClick={() => {
-              setModelErr(null);
-              api.listAiModels().then((m) => { setModels(m); if (!m.length) setModelErr("No models listed"); }).catch((e) => setModelErr(String(e)));
-            }}
-          >
-            Load models
-          </button>
-          {models.length > 0 && <span className="muted sm">{models.length} available, pick from the box</span>}
-          {modelErr && <span className="sm" style={{ color: "var(--err)" }}>{modelErr}</span>}
-        </div>
+        <Row title="Model" desc="Pick from the provider's list, or type a name">
+          <Combobox key={ai.provider} value={ai.model} onChange={(m) => set({ model: m })} load={loadModels} placeholder="Choose a model" width={300} />
+        </Row>
 
-        <label>Clean up dictations</label>
-        <label className="check">
-          <input type="checkbox" checked={ai.cleanup} onChange={(e) => set({ cleanup: e.target.checked })} />
-          Run every dictation through the AI before pasting (adds a moment; if the AI is slow or offline, Baa pastes what you said instead)
-        </label>
+        <Row title="Clean up dictations" desc="Fix grammar and false starts before pasting. If the AI is slow or offline, Baa pastes what you said.">
+          <Toggle on={ai.cleanup} onChange={(v) => set({ cleanup: v })} label="Clean up dictations" />
+        </Row>
 
-        <label>Give up after</label>
-        <select value={ai.timeout_secs} onChange={(e) => set({ timeout_secs: Number(e.target.value) })}>
-          {[3, 6, 10, 20].map((n) => <option key={n} value={n}>{n} seconds</option>)}
-        </select>
+        <Row title="Give up after" desc="How long to wait for the AI before pasting your words as they are">
+          <Select width={140} value={ai.timeout_secs} options={[3, 6, 10, 20].map((n) => ({ value: n, label: `${n} seconds` }))} onChange={(v) => set({ timeout_secs: v })} />
+        </Row>
       </div>
 
-      <section>
+      <div className="section">
         <h2>Clean-up instructions</h2>
-        <textarea className="prompt" value={ai.prompt} onChange={(e) => set({ prompt: e.target.value })} />
-      </section>
+        <p className="lead">What "clean up" means. The app you're typing into and your custom words are added automatically.</p>
+        <textarea style={{ minHeight: 130 }} value={ai.prompt} onChange={(e) => set({ prompt: e.target.value })} />
+      </div>
 
-      <section>
+      <div className="section">
         <h2>Try it</h2>
+        <p className="lead">Run the clean-up on some messy text.</p>
         <textarea value={sample} onChange={(e) => setSample(e.target.value)} />
-        <div className="row" style={{ marginTop: 8 }}>
-          <button onClick={test} disabled={testing || !status?.ready}>{testing ? "Asking…" : "Clean this up"}</button>
+        <div style={{ marginTop: 10 }}>
+          <button className="btn primary" onClick={test} disabled={testing || !status?.ready}>{testing ? "Asking…" : "Clean this up"}</button>
         </div>
         {result !== null && <p className="preview">{result}</p>}
-      </section>
+      </div>
     </>
   );
 }

@@ -3,13 +3,14 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { api, DownloadProgress, EngineStatus, fmtSize, ModelRow } from "../api";
 import type { PageProps } from "../App";
+import { Icon } from "../ui/controls";
 
-const TIERS: [string, string][] = [
-  ["recommended", "Recommended"],
-  ["great", "Great with a GPU"],
-  ["light", "Light: older or slower PCs"],
-  ["more", "More models"],
-  ["imported", "Your imported models"],
+const TIERS: [string, string, string][] = [
+  ["recommended", "Recommended", "The best fit for most people."],
+  ["great", "Great with a graphics card", "More accurate, a little heavier."],
+  ["light", "Light", "For older or slower PCs."],
+  ["more", "More models", "Bigger or more specialised."],
+  ["imported", "Your imported models", "Files you added yourself."],
 ];
 
 export default function Models({ settings, save }: PageProps) {
@@ -18,11 +19,7 @@ export default function Models({ settings, save }: PageProps) {
   const [engine, setEngine] = useState<EngineStatus | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  const load = () => {
-    api.listModels().then(setRows);
-    api.engineStatus().then(setEngine);
-  };
-
+  const load = () => { api.listModels().then(setRows); api.engineStatus().then(setEngine); };
   useEffect(() => {
     load();
     const un = listen<DownloadProgress>("model-download", (e) => {
@@ -31,10 +28,7 @@ export default function Models({ settings, save }: PageProps) {
       if (e.payload.state === "error") setErr(e.payload.error);
     });
     const t = setInterval(() => api.engineStatus().then(setEngine), 3000);
-    return () => {
-      un.then((f) => f());
-      clearInterval(t);
-    };
+    return () => { un.then((f) => f()); clearInterval(t); };
   }, []);
 
   const download = (id: string) => {
@@ -42,75 +36,59 @@ export default function Models({ settings, save }: PageProps) {
     api.downloadModel(id).catch((e) => setErr(String(e))).finally(load);
     setTimeout(load, 300);
   };
-
   const importFile = async () => {
     const path = await open({ multiple: false, filters: [{ name: "Speech model", extensions: ["gguf", "bin"] }] });
     if (typeof path !== "string") return;
     setErr(null);
-    try {
-      await api.importModel(path);
-      load();
-    } catch (e) {
-      setErr(String(e));
-    }
+    try { await api.importModel(path); load(); } catch (e) { setErr(String(e)); }
   };
 
   return (
     <>
-      <div className="row between">
-        <h1>Models</h1>
-        <button onClick={importFile}>Import a model file…</button>
+      <div className="page-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20 }}>
+        <div>
+          <h1>Models</h1>
+          <p>
+            Speech models run on your PC, so nothing you say leaves it.{" "}
+            {engine?.loaded ? <>Loaded now on <b>{engine.backend}</b>.</> : "Nothing loaded right now; a model loads the moment you talk."}
+          </p>
+        </div>
+        <button className="btn" onClick={importFile}><Icon name="download" size={14} />Import a model file</button>
       </div>
-      <p className="muted">
-        Models run on your own computer. Nothing you say leaves it.
-        {engine?.loaded && <> Loaded now on <b>{engine.backend}</b>.</>}
-        {engine && !engine.loaded && <> No model in memory right now (it loads when you talk).</>}
-      </p>
-      {err && <div className="banner err">{err}</div>}
-      {TIERS.map(([tier, title]) => {
+      {err && <div className="banner err" onClick={() => setErr(null)}>{err}</div>}
+      {TIERS.map(([tier, title, lead]) => {
         const list = rows.filter((r) => r.tier === tier);
         if (!list.length) return null;
         return (
-          <section key={tier}>
+          <div className="section" key={tier}>
             <h2>{title}</h2>
+            <p className="lead">{lead}</p>
             <ul className="models">
               {list.map((m) => {
                 const p = progress[m.id];
                 const active = settings.model === m.id;
                 const busy = m.downloading || p?.state === "downloading" || p?.state === "verifying";
                 return (
-                  <li key={m.id} className={active ? "active" : ""}>
+                  <li key={m.id}>
                     <div className="grow">
-                      <div className="row">
-                        <b>{m.name}</b>
-                        {active && <span className="tag">In use</span>}
-                        <span className="muted sm">{fmtSize(m.size)}</span>
-                      </div>
-                      <p className="muted sm">{m.description}</p>
+                      <div><b>{m.name}</b><span className="size">{fmtSize(m.size)}</span> {active && <span className="tag">In use</span>}</div>
+                      <p>{m.description}</p>
                       {busy && p && (
-                        <div className="bar">
-                          <i style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} />
-                          <span>{p.state === "verifying" ? "Checking file…" : `${fmtSize(p.done)} of ${fmtSize(p.total)}`}</span>
-                        </div>
+                        <>
+                          <div className="bar-prog"><i style={{ width: `${p.total ? (p.done / p.total) * 100 : 0}%` }} /></div>
+                          <div className="prog-label">{p.state === "verifying" ? "Checking the file…" : `${fmtSize(p.done)} of ${fmtSize(p.total)}`}</div>
+                        </>
                       )}
                     </div>
-                    <div className="row">
-                      {m.installed && !active && (
-                        <button onClick={() => save({ ...settings, model: m.id })}>Use</button>
-                      )}
-                      {!m.installed && !busy && <button onClick={() => download(m.id)}>Download</button>}
-                      {busy && <button className="ghost" onClick={() => api.cancelDownload(m.id)}>Cancel</button>}
-                      {m.installed && (
-                        <button className="ghost" onClick={() => api.deleteModel(m.id).then(load)}>
-                          {m.imported ? "Remove" : "Delete"}
-                        </button>
-                      )}
-                    </div>
+                    {m.installed && !active && <button className="btn soft" onClick={() => save({ ...settings, model: m.id })}>Use</button>}
+                    {!m.installed && !busy && <button className="btn" onClick={() => download(m.id)}>Download</button>}
+                    {busy && <button className="btn ghost" onClick={() => api.cancelDownload(m.id)}>Cancel</button>}
+                    {m.installed && <button className="btn ghost" onClick={() => api.deleteModel(m.id).then(load)}>{m.imported ? "Remove" : "Delete"}</button>}
                   </li>
                 );
               })}
             </ul>
-          </section>
+          </div>
         );
       })}
     </>

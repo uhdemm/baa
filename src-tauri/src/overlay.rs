@@ -5,8 +5,8 @@
 use crate::settings::Settings;
 use tauri::{AppHandle, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder};
 
-pub const WIDTH: f64 = 260.0;
-pub const HEIGHT: f64 = 180.0;
+pub const WIDTH: f64 = 380.0;
+pub const HEIGHT: f64 = 300.0;
 const LABEL: &str = "overlay";
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {

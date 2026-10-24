@@ -1,108 +1,95 @@
-// The bar the character sits on. Functional version for now: mood label, live mic
-// meter, the words so far, and sounds. The sheep sprite player drops in here later.
+// The dictation bar (design panels 01-03): pixel face, live waveform, status, and the
+// expanded transcript card while you talk.
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { listen } from "@tauri-apps/api/event";
+import Face, { Mood } from "./ui/Face";
+import Wave from "./ui/Wave";
+import "./styles.css";
+
+document.documentElement.classList.add("overlay");
 
 type State = "idle" | "listen" | "think" | "send" | "nothing" | "error" | "cancel";
 interface OverlayEvent { state: State; message: string | null; kind: "dictate" | "command"; sounds: boolean }
 
-const LABEL: Record<State, string> = {
-  idle: "",
-  listen: "Listening",
-  think: "Thinking…",
-  send: "Baa!",
-  nothing: "Didn't hear anything",
-  error: "Something went wrong",
-  cancel: "Cancelled",
+const VIEW: Record<State, { mood: Mood; wave: "listening" | "processing" | "idle" | "calm"; label: string }> = {
+  idle: { mood: "idle", wave: "idle", label: "" },
+  listen: { mood: "listening", wave: "listening", label: "Listening..." },
+  think: { mood: "thinking", wave: "processing", label: "Processing..." },
+  send: { mood: "success", wave: "calm", label: "Inserted" },
+  nothing: { mood: "idle", wave: "idle", label: "Didn't catch that" },
+  error: { mood: "thinking", wave: "idle", label: "Something went wrong" },
+  cancel: { mood: "idle", wave: "idle", label: "Cancelled" },
 };
 
-// Which sound plays when the bar enters a state.
-const SOUND: Partial<Record<State, string>> = {
-  listen: "start", think: "stop", send: "send", error: "error", cancel: "cancel",
-};
+const SOUND: Partial<Record<State, string>> = { listen: "start", think: "stop", send: "send", error: "error", cancel: "cancel" };
 const audio: Record<string, HTMLAudioElement> = {};
-for (const n of new Set(Object.values(SOUND))) {
-  const a = new Audio(`/sounds/${n}.wav`);
-  a.preload = "auto";
-  audio[n] = a;
-}
-function play(name: string | undefined) {
-  if (!name) return;
-  const a = audio[name];
-  a.currentTime = 0;
-  a.play().catch(() => {});
-}
+for (const n of new Set(Object.values(SOUND))) { const a = new Audio(`/sounds/${n}.wav`); a.preload = "auto"; audio[n] = a; }
+const play = (n?: string) => { if (!n) return; const a = audio[n]; a.currentTime = 0; a.play().catch(() => {}); };
+
+// Dev preview in a plain browser: overlay.html?state=listen&live=Some+words&kind=command
+const demo = import.meta.env.DEV && !(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ ? new URLSearchParams(location.search) : null;
 
 function Overlay() {
-  const [ev, setEv] = useState<OverlayEvent>({ state: "idle", message: null, kind: "dictate", sounds: true });
-  const [level, setLevel] = useState(0);
-  const [live, setLive] = useState("");
+  const [ev, setEv] = useState<OverlayEvent>({ state: (demo?.get("state") as State) || "idle", message: demo?.get("msg") ?? null, kind: (demo?.get("kind") as "command") || "dictate", sounds: false });
+  const [level, setLevel] = useState(demo ? 0.55 : 0);
+  const [live, setLive] = useState(demo?.get("live") ?? "");
   const smooth = useRef(0);
   const prev = useRef<State>("idle");
+  const body = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (demo) return;
     const a = listen<OverlayEvent>("overlay-state", (e) => {
       const p = e.payload;
-      // "think" fires again for "Polishing…"; only sound the first time
-      if (p.sounds && p.state !== prev.current) play(SOUND[p.state]);
+      if (p.sounds && p.state !== prev.current) play(SOUND[p.state]); // "think" fires twice for "Polishing…"
       prev.current = p.state;
       setEv(p);
       if (p.state === "listen") setLive("");
-      if (p.state !== "listen") setLevel(0);
     });
-    const b = listen<number>("mic-level", (e) => {
-      smooth.current = smooth.current * 0.5 + e.payload * 0.5;
-      setLevel(smooth.current);
-    });
+    const b = listen<number>("mic-level", (e) => { smooth.current = smooth.current * 0.55 + e.payload * 0.45; setLevel(smooth.current); });
     const c = listen<string>("live-text", (e) => setLive(e.payload));
-    return () => {
-      a.then((f) => f());
-      b.then((f) => f());
-      c.then((f) => f());
-    };
+    return () => { a.then((f) => f()); b.then((f) => f()); c.then((f) => f()); };
   }, []);
+  useEffect(() => { body.current?.scrollTo({ top: 1e6 }); }, [live]);
 
   const { state, message, kind } = ev;
   if (state === "idle") return null;
-  const showLive = live && (state === "listen" || state === "think");
+  const v = VIEW[state];
+  const label = message ?? (kind === "command" && state === "listen" ? "Say what to change..." : v.label);
+  const wave = <Wave style={v.wave} level={state === "listen" ? level : undefined} />;
+  const expanded = !!live && (state === "listen" || state === "think");
+
+  const head = (
+    <div className="dbar-row">
+      <div className="face-wrap"><Face mood={v.mood} size={31} extras={state !== "listen"} /></div>
+      {wave}
+      <div className="divider" />
+      <span className={`label ${state === "error" ? "err" : ""}`}>
+        {kind === "command" && <b className="cmd">Command</b>}
+        {expanded ? live.split(/\s+/).slice(0, 4).join(" ") + "..." : label}
+      </span>
+      {state === "listen" && <i className="caret" />}
+    </div>
+  );
+
   return (
     <div className="ov">
-      {showLive && <div className="live">{live.length > 140 ? "…" + live.slice(-140) : live}</div>}
-      <div className={`pill ${state} ${kind}`}>
-        {kind === "command" && state === "listen" && <span className="tag">Command</span>}
-        {state === "listen" ? (
-          <div className="meter">
-            {Array.from({ length: 9 }, (_, i) => {
-              const h = Math.max(3, level * 22 * (1 - Math.abs(i - 4) / 6));
-              return <i key={i} style={{ height: h }} />;
-            })}
+      {expanded ? (
+        <div className="xcard">
+          {head}
+          <div className="xbody" ref={body}>{live}</div>
+          <div className="xfoot">
+            <span className="esc">Esc</span><span className="muted">Cancel</span>
+            <span className="ins">{state === "think" ? "Inserting…" : "Let go to insert"}</span>
           </div>
-        ) : (
-          <span>{message ?? LABEL[state]}</span>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className={`dbar ov-bar ${state}`}>{head}</div>
+      )}
     </div>
   );
 }
-
-const css = `
-html,body{margin:0;background:transparent;overflow:hidden;font:600 13px/1.25 system-ui,"Segoe UI",sans-serif}
-.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;padding:0 8px 6px}
-.live{max-width:244px;background:rgba(20,20,22,.88);color:#fff;font-weight:500;border-radius:10px;padding:8px 11px;
-  box-shadow:0 4px 18px rgba(0,0,0,.25);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
-.pill{min-width:120px;max-width:244px;min-height:36px;padding:6px 16px;border-radius:18px;background:rgba(20,20,22,.92);color:#fff;
-  display:flex;gap:8px;align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,.25);text-align:center;box-sizing:border-box}
-.pill.error{background:#b3261e}
-.pill.send{background:#1f8a4c}
-.pill.command.listen{background:#3a2d8f}
-.tag{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.06em}
-.meter{display:flex;gap:4px;align-items:center;height:24px}
-.meter i{display:block;width:4px;border-radius:2px;background:#fff;transition:height 60ms linear}
-`;
-const style = document.createElement("style");
-style.textContent = css;
-document.head.appendChild(style);
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
