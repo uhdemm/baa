@@ -89,8 +89,6 @@ pub fn hide(app: &AppHandle) {
     }
 }
 
-#[cfg(windows)]
-pub use win::{no_activate, show_no_activate};
 
 #[cfg(windows)]
 mod win {

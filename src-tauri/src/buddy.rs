@@ -36,21 +36,31 @@ pub fn create(app: &AppHandle, s: &Settings) -> tauri::Result<()> {
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)
+        // never takes focus from the app you're typing in (a real window setting, so
+        // nothing can wipe it later)
+        .focusable(false)
         .focused(false)
         .visible(false)
         .build()?;
+    // Click-through is switched on once, like the bar's. Grabbing the character only
+    // flips the "transparent to clicks" bit below; switching Tauri's own setting back
+    // and forth rebuilt the window style and made the see-through window flicker.
     w.set_ignore_cursor_events(true)?;
-    #[cfg(windows)]
-    crate::overlay::no_activate(&w);
-    // let the mouse through everywhere except over the character
     let app2 = app.clone();
     std::thread::spawn(move || {
-        let mut grabbable = false;
+        let mut tick = 0u32;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(60));
             let Some(w) = app2.get_webview_window(LABEL) else { return };
             if !w.is_visible().unwrap_or(false) {
                 continue;
+            }
+            tick += 1;
+            // stay above everything, the taskbar and other always-on-top apps included:
+            // whichever one was clicked last would otherwise end up over the buddy
+            #[cfg(windows)]
+            if tick % 5 == 0 {
+                win::raise(&w);
             }
             let over = match (app2.cursor_position(), w.outer_position(), w.scale_factor(), *HIT.lock()) {
                 (Ok(c), Ok(p), Ok(k), Some((x, y, bw, bh))) => {
@@ -59,13 +69,46 @@ pub fn create(app: &AppHandle, s: &Settings) -> tauri::Result<()> {
                 }
                 _ => false,
             };
-            if over != grabbable {
-                grabbable = over;
-                let _ = w.set_ignore_cursor_events(!over);
-            }
+            // applied every tick (it only writes when it differs), so a show/hide that
+            // resets the window style can't leave it in the wrong state
+            #[cfg(windows)]
+            win::click_through(&w, !over);
         }
     });
     Ok(())
+}
+
+#[cfg(windows)]
+mod win {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetWindowLongPtrW, SetWindowLongPtrW, SetWindowPos, GWL_EXSTYLE, HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE,
+        SWP_NOOWNERZORDER, SWP_NOSIZE, WS_EX_TRANSPARENT,
+    };
+
+    fn hwnd(w: &tauri::WebviewWindow) -> Option<HWND> {
+        w.hwnd().ok().map(|h| HWND(h.0 as _))
+    }
+
+    /// Only the "clicks go through" bit; the window stays layered the whole time.
+    pub fn click_through(w: &tauri::WebviewWindow, on: bool) {
+        let Some(h) = hwnd(w) else { return };
+        unsafe {
+            let ex = GetWindowLongPtrW(h, GWL_EXSTYLE);
+            let t = WS_EX_TRANSPARENT.0 as isize;
+            let next = if on { ex | t } else { ex & !t };
+            if next != ex {
+                SetWindowLongPtrW(h, GWL_EXSTYLE, next);
+            }
+        }
+    }
+
+    pub fn raise(w: &tauri::WebviewWindow) {
+        let Some(h) = hwnd(w) else { return };
+        unsafe {
+            let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        }
+    }
 }
 
 pub fn set_hit(rect: Option<(f64, f64, f64, f64)>) {
@@ -124,12 +167,14 @@ pub fn sync(app: &AppHandle, s: &Settings) {
     }
 }
 
+/// Shows it through Tauri, so Tauri's idea of "visible" matches the real window (a raw
+/// ShowWindow left it thinking "hidden", and its next style update hid the buddy),
+/// then puts it on top. focusable(false) keeps the show from taking focus.
 pub fn show(app: &AppHandle) {
     if let Some(w) = app.get_webview_window(LABEL) {
-        #[cfg(windows)]
-        crate::overlay::show_no_activate(&w);
-        #[cfg(not(windows))]
         let _ = w.show();
+        #[cfg(windows)]
+        win::raise(&w);
     }
 }
 
