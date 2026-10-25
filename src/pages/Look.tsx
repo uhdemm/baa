@@ -31,7 +31,7 @@ function Slider({ value, min, max, step, onChange, ticks }: { value: number; min
   return (
     <div>
       <input className="slider" type="range" min={min} max={max} step={step} value={value} style={{ ["--p" as string]: `${p}%` }} onChange={(e) => onChange(Number(e.target.value))} />
-      {ticks && <div className="ticks">{ticks.map((t) => <span key={t}>{t}</span>)}</div>}
+      {ticks && <div className="ticks">{ticks.map((t, i) => <span key={i}>{t}</span>)}</div>}
     </div>
   );
 }
