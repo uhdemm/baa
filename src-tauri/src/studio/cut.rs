@@ -108,35 +108,34 @@ pub struct Box4 {
     pub y1: u32,
 }
 
-/// The `n` biggest separate drawings, in reading order. Works on a 4x-smaller
-/// mask with a small dilation, so a wisp of wool doesn't split a frame in two.
-pub fn find_frames(im: &RgbaImage, n: usize) -> anyhow::Result<Vec<Box4>> {
-    const S: u32 = 4;
-    let (w, h) = (im.width().div_ceil(S), im.height().div_ceil(S));
-    let mut mask = vec![false; (w * h) as usize];
-    for (x, y, p) in im.enumerate_pixels() {
-        if p[3] >= VISIBLE {
-            mask[((y / S) * w + x / S) as usize] = true;
-        }
+/// Mask cells are this many pixels square.
+const S: u32 = 4;
+
+/// One drawing on a sheet: its box (sheet px) and its label in the cell map.
+#[derive(Clone, Copy, Debug)]
+pub struct Found {
+    pub b: Box4,
+    id: u32,
+}
+
+/// The drawings on a sheet, plus which drawing each 4x4 cell belongs to, so a frame
+/// keeps only its own pixels (not a neighbour's ear poking into its box).
+pub struct Frames {
+    pub list: Vec<Found>,
+    labels: Vec<u32>,
+    w: u32,
+}
+
+impl Frames {
+    pub fn owns(&self, f: &Found, x: u32, y: u32) -> bool {
+        self.labels.get(((y / S) * self.w + x / S) as usize) == Some(&f.id)
     }
-    // dilate by 2 cells
-    let mut dil = mask.clone();
-    for y in 0..h as i32 {
-        for x in 0..w as i32 {
-            if mask[(y * w as i32 + x) as usize] {
-                for dy in -2..=2 {
-                    for dx in -2..=2 {
-                        let (nx, ny) = (x + dx, y + dy);
-                        if nx >= 0 && ny >= 0 && nx < w as i32 && ny < h as i32 {
-                            dil[(ny * w as i32 + nx) as usize] = true;
-                        }
-                    }
-                }
-            }
-        }
-    }
+}
+
+/// Connected regions of `dil`: per-cell labels and (area, box in cells) per label.
+fn label(dil: &[bool], w: u32, h: u32) -> (Vec<u32>, Vec<(u32, Box4)>) {
     let mut label = vec![0u32; dil.len()];
-    let mut comps: Vec<(u32, Box4)> = vec![]; // (area, box in mask cells)
+    let mut comps: Vec<(u32, Box4)> = vec![];
     for start in 0..dil.len() {
         if !dil[start] || label[start] != 0 {
             continue;
@@ -165,32 +164,103 @@ pub fn find_frames(im: &RgbaImage, n: usize) -> anyhow::Result<Vec<Box4>> {
         }
         comps.push((area, b));
     }
-    if comps.len() < n {
-        anyhow::bail!("found {} drawings on the sheet, expected {n} (frames must not touch)", comps.len());
-    }
-    comps.sort_by(|a, b| b.0.cmp(&a.0));
-    let mut boxes: Vec<Box4> = comps[..n]
-        .iter()
-        .map(|(_, b)| Box4 { x0: b.x0 * S, y0: b.y0 * S, x1: ((b.x1 + 1) * S).min(im.width()), y1: ((b.y1 + 1) * S).min(im.height()) })
-        .collect();
-    // tiny leftovers (a stray dot) mean the model drew fewer frames
-    let biggest = comps[0].0;
-    if comps[n - 1].0 * 8 < biggest {
-        anyhow::bail!("one of the {n} frames is tiny: the sheet probably has fewer drawings");
-    }
-    // reading order: rows by centre, then left to right
-    boxes.sort_by_key(|b| (b.y0 + b.y1) / 2);
-    let mut rows: Vec<Vec<Box4>> = vec![];
-    for b in boxes {
-        match rows.last_mut() {
-            Some(r) if ((b.y0 + b.y1) as i64 / 2 - (r[0].y0 + r[0].y1) as i64 / 2).abs() < (b.y1 - b.y0) as i64 * 4 / 10 => r.push(b),
-            _ => rows.push(vec![b]),
+    (label, comps)
+}
+
+/// `n` drawings of similar size? (the n-th biggest isn't a stray speck)
+fn enough(comps: &[(u32, Box4)], n: usize) -> bool {
+    let mut areas: Vec<u32> = comps.iter().map(|c| c.0).collect();
+    areas.sort_by(|a, b| b.cmp(a));
+    areas.len() >= n && areas[n - 1] * 8 >= areas[0]
+}
+
+/// The `n` biggest separate drawings, in reading order. Works on a 4x-smaller mask
+/// with a small dilation, so a wisp of fur doesn't split a frame in two. When two
+/// drawings touch (a sitting pose's boots on the ears of the frame below), the sheet
+/// is split along the emptiest line near each boundary of its `cols` x `rows` grid.
+pub fn find_frames(im: &RgbaImage, n: usize, cols: u32) -> anyhow::Result<Frames> {
+    let (w, h) = (im.width().div_ceil(S), im.height().div_ceil(S));
+    let rows = (n as u32).div_ceil(cols.max(1));
+    let mut mask = vec![false; (w * h) as usize];
+    for (x, y, p) in im.enumerate_pixels() {
+        if p[3] >= VISIBLE {
+            mask[((y / S) * w + x / S) as usize] = true;
         }
     }
-    Ok(rows.into_iter().flat_map(|mut r| {
-        r.sort_by_key(|b| b.x0);
-        r
-    }).collect())
+    // dilate by 2 cells
+    let mut dil = mask.clone();
+    for y in 0..h as i32 {
+        for x in 0..w as i32 {
+            if mask[(y * w as i32 + x) as usize] {
+                for dy in -2..=2 {
+                    for dx in -2..=2 {
+                        let (nx, ny) = (x + dx, y + dy);
+                        if nx >= 0 && ny >= 0 && nx < w as i32 && ny < h as i32 {
+                            dil[(ny * w as i32 + nx) as usize] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    let (mut labels, mut comps) = label(&dil, w, h);
+    if !enough(&comps, n) {
+        // the emptiest row/column within an eighth of the sheet of each grid line
+        let ink_row = |y: u32| (0..w).filter(|&x| mask[(y * w + x) as usize]).count();
+        let ink_col = |x: u32| (0..h).filter(|&y| mask[(y * w + x) as usize]).count();
+        for k in 1..rows {
+            let c = h * k / rows;
+            let (lo, hi) = (c.saturating_sub(h / 8), (c + h / 8).min(h - 1));
+            let y = (lo..=hi).min_by_key(|&y| ink_row(y)).unwrap_or(c);
+            for x in 0..w {
+                dil[(y * w + x) as usize] = false;
+            }
+        }
+        for k in 1..cols {
+            let c = w * k / cols;
+            let (lo, hi) = (c.saturating_sub(w / 10), (c + w / 10).min(w - 1));
+            let x = (lo..=hi).min_by_key(|&x| ink_col(x)).unwrap_or(c);
+            for y in 0..h {
+                dil[(y * w + x) as usize] = false;
+            }
+        }
+        (labels, comps) = label(&dil, w, h);
+    }
+    if comps.len() < n {
+        anyhow::bail!("found {} drawings on the sheet, expected {n}", comps.len());
+    }
+    if !enough(&comps, n) {
+        anyhow::bail!("one of the {n} frames is tiny: the sheet probably has fewer drawings");
+    }
+    let mut ids: Vec<usize> = (0..comps.len()).collect();
+    ids.sort_by(|a, b| comps[*b].0.cmp(&comps[*a].0));
+    let mut list: Vec<Found> = ids[..n]
+        .iter()
+        .map(|&i| {
+            let b = comps[i].1;
+            Found {
+                b: Box4 { x0: b.x0 * S, y0: b.y0 * S, x1: ((b.x1 + 1) * S).min(im.width()), y1: ((b.y1 + 1) * S).min(im.height()) },
+                id: i as u32 + 1,
+            }
+        })
+        .collect();
+    // reading order: rows by centre, then left to right
+    list.sort_by_key(|f| (f.b.y0 + f.b.y1) / 2);
+    let mut grid: Vec<Vec<Found>> = vec![];
+    for f in list {
+        match grid.last_mut() {
+            Some(r) if ((f.b.y0 + f.b.y1) as i64 / 2 - (r[0].b.y0 + r[0].b.y1) as i64 / 2).abs() < (f.b.y1 - f.b.y0) as i64 * 4 / 10 => r.push(f),
+            _ => grid.push(vec![f]),
+        }
+    }
+    let list = grid
+        .into_iter()
+        .flat_map(|mut r| {
+            r.sort_by_key(|f| f.b.x0);
+            r
+        })
+        .collect();
+    Ok(Frames { list, labels, w })
 }
 
 // ---------- registration ----------
@@ -284,11 +354,18 @@ fn pixelate(img: &RgbaImage, s: f64) -> RgbaImage {
 /// (or, for pixel art, STAND_PX real pixels in PIXEL_BLOCK blocks).
 pub fn cut_sheet(path: &Path, n: usize, pixel: bool) -> anyhow::Result<Vec<Frame>> {
     let src = clean(&image::open(path)?.to_rgba8());
-    let boxes = find_frames(&src, n)?;
+    let found = find_frames(&src, n, 3)?;
+    let boxes: Vec<Box4> = found.list.iter().map(|f| f.b).collect();
     // the ground for each row of the grid: the lowest feet in that row
     let mut raw = vec![];
-    for b in &boxes {
-        let crop = imageops::crop_imm(&src, b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0).to_image();
+    for f in &found.list {
+        let b = f.b;
+        let mut crop = imageops::crop_imm(&src, b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0).to_image();
+        for (x, y, p) in crop.enumerate_pixels_mut() {
+            if !found.owns(f, b.x0 + x, b.y0 + y) {
+                *p = Rgba([0, 0, 0, 0]); // a neighbour's pixels inside this box
+            }
+        }
         let t = tight(&crop).ok_or_else(|| anyhow::anyhow!("empty frame"))?;
         let img = imageops::crop_imm(&crop, t.x0, t.y0, t.x1 - t.x0, t.y1 - t.y0).to_image();
         raw.push((img, b.y0 + t.y1, (b.y0 + b.y1) / 2));
@@ -399,9 +476,24 @@ mod tests {
             let (cx, cy) = ((k % 3) * 200 + 60, (k / 3) * 200 + 40);
             blob(&mut img, cx, cy, 60 + k, 120);
         }
-        let b = find_frames(&img, 6).unwrap();
+        let f = find_frames(&img, 6, 3).unwrap();
+        let b: Vec<Box4> = f.list.iter().map(|f| f.b).collect();
         assert_eq!(b.len(), 6);
         assert!(b[0].x0 < b[1].x0 && b[1].x0 < b[2].x0 && b[2].y1 < b[3].y0);
+    }
+
+    #[test]
+    fn touching_frames_are_split_on_the_grid() {
+        let mut img = RgbaImage::new(600, 400);
+        for k in 0..6u32 {
+            blob(&mut img, (k % 3) * 200 + 60, (k / 3) * 200 + 30, 70, 150);
+        }
+        blob(&mut img, 270, 175, 8, 60); // an ear from the bottom-middle frame reaching up into the top one
+        let f = find_frames(&img, 6, 3).unwrap();
+        assert_eq!(f.list.len(), 6);
+        let (top, bottom) = (f.list[1], f.list[4]);
+        assert!(top.b.y1 <= bottom.b.y0 + 8, "split between the rows");
+        assert!(!f.owns(&top, 273, 228) || !f.owns(&bottom, 273, 228));
     }
 
     #[test]
@@ -411,7 +503,7 @@ mod tests {
             blob(&mut img, (k % 3) * 200 + 60, (k / 3) * 200 + 40, 60, 120);
         }
         blob(&mut img, 500, 380, 3, 3); // a stray speck is not a frame
-        assert!(find_frames(&img, 6).is_err());
+        assert!(find_frames(&img, 6, 3).is_err());
     }
 
     #[test]
