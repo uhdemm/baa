@@ -1,7 +1,7 @@
 """Run Baa's clean-up instructions on messy dictations and print what would be pasted.
 
     python scripts/test_cleanup.py            # uses src-tauri/src/cleanup_prompt.txt
-Reads ANTHROPIC_API_KEY from C:/Users/kong1/after-rejects/.env (never printed).
+Needs ANTHROPIC_API_KEY in the environment (or in a .env file named by BAA_ENV_FILE).
 Same request shape as the app: claude-opus-5-5, effort low, prompt as system, <context> + <dictation>.
 """
 import pathlib
@@ -11,14 +11,19 @@ import anthropic
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PROMPT = (ROOT / "src-tauri" / "src" / "cleanup_prompt.txt").read_text(encoding="utf-8")
-OUT = pathlib.Path("D:/Baa/design/cleanup-test.md")
+OUT = ROOT / "cleanup-test.md"
 
 
 def key():
-    for line in pathlib.Path("C:/Users/kong1/after-rejects/.env").read_text(encoding="utf-8").splitlines():
-        if line.startswith("ANTHROPIC_API_KEY="):
-            return line.split("=", 1)[1].strip().strip('"')
-    sys.exit("no key")
+    import os
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return os.environ["ANTHROPIC_API_KEY"]
+    env = os.environ.get("BAA_ENV_FILE")
+    if env:
+        for line in pathlib.Path(env).read_text(encoding="utf-8").splitlines():
+            if line.startswith("ANTHROPIC_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"')
+    sys.exit("set ANTHROPIC_API_KEY (or BAA_ENV_FILE=path/to/.env)")
 
 
 CASES = [

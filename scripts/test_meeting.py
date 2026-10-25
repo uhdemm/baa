@@ -1,7 +1,7 @@
 """Run Baa's meeting-notes prompt on a sample diarized call and print the result.
 
     python scripts/test_meeting.py
-Reads ANTHROPIC_API_KEY from C:/Users/kong1/after-rejects/.env (never printed).
+Uses the same key lookup as test_cleanup.py (ANTHROPIC_API_KEY or BAA_ENV_FILE).
 Same request shape as the app: prompt as system; template, attendees, my notes, transcript.
 """
 import pathlib
