@@ -11,6 +11,11 @@ const VISIBLE: u8 = 64;
 const KEY_THRESHOLD_SQ: f64 = 72.0 * 72.0;
 /// How tall a standing frame is in the output, px (shown at ~75 px, so 3x for sharp scaling)
 pub const STAND_H: f64 = 230.0;
+
+/// The standing height to cut at: STAND_H, or BAA_STAND_H for bigger exports (the website).
+fn stand_h() -> f64 {
+    std::env::var("BAA_STAND_H").ok().and_then(|v| v.parse().ok()).unwrap_or(STAND_H)
+}
 /// Pixel-art characters: a standing pose is this many real pixels tall...
 pub const STAND_PX: f64 = 48.0;
 /// ...and each pixel is stored as a crisp block this big (the app draws them pixelated).
@@ -380,7 +385,7 @@ pub fn cut_sheet(path: &Path, n: usize, pixel: bool) -> anyhow::Result<Vec<Frame
     let tallest = raw.iter().map(|r| r.0.height()).max().unwrap_or(1) as f64;
     let mut standing: Vec<f64> = raw.iter().map(|r| r.0.height() as f64).filter(|h| *h >= tallest * 0.8).collect();
     standing.sort_by(|a, b| a.total_cmp(b));
-    let s = if pixel { STAND_PX } else { STAND_H } / standing[standing.len() / 2];
+    let s = if pixel { STAND_PX } else { stand_h() } / standing[standing.len() / 2];
     Ok(raw
         .into_iter()
         .map(|(img, bottom, cy)| {
@@ -450,7 +455,7 @@ pub fn write_pack(out: &Path, meta: &serde_json::Value, sheets: &[(String, Vec<F
     char["format"] = json!(1);
     char["full_body"] = json!(true);
     char["slot"] = json!({"w": sw, "h": sh});
-    char["stand_height"] = json!(if pixel { STAND_PX * PIXEL_BLOCK as f64 } else { STAND_H });
+    char["stand_height"] = json!(if pixel { STAND_PX * PIXEL_BLOCK as f64 } else { stand_h() });
     char["sheets"] = serde_json::Value::Object(sheets_meta);
     char["states"] = states;
     std::fs::write(out.join("character.json"), serde_json::to_vec_pretty(&char)?)?;
