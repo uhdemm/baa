@@ -52,7 +52,7 @@ export function Select<T extends string | number>({ value, options, onChange, wi
       {open && (
         <ul className="menu" role="listbox">
           {options.map((o, i) => (
-            <li key={String(o.value)} role="option" aria-selected={o.value === value} className={`${i === hi ? "hi" : ""} ${o.value === value ? "sel" : ""}`}
+            <li key={`${i}-${String(o.value)}`} role="option" aria-selected={o.value === value} className={`${i === hi ? "hi" : ""} ${o.value === value ? "sel" : ""}`}
               onMouseEnter={() => setHi(i)} onMouseDown={(e) => { e.preventDefault(); pick(o); }}>
               <span>{o.label}</span>{o.hint && <small>{o.hint}</small>}
             </li>
