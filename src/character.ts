@@ -1,7 +1,7 @@
 // Character packs (character.json + sprite sheets): loading, and picking the frame to
 // show for a mood at a moment in time. The Sheep ships in /characters/sheep; installed
 // packs live in the app data folder and load over Tauri's asset protocol.
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 
 export type Mood = "appear" | "idle" | "listen" | "think" | "send" | "nothing" | "error" | "cancel" | "sleep" | "wake";
 
@@ -47,13 +47,23 @@ const cache = new Map<string, Promise<Character>>();
 export function loadCharacter(id: string, dir: string | null = null): Promise<Character> {
   const key = `${id}|${dir ?? ""}`;
   if (!cache.has(key)) {
-    const base = dir ? (f: string) => convertFileSrc(`${dir}\\${f}`) : (f: string) => `/characters/${id}/${f}`;
-    cache.set(key, fetch(base("character.json")).then(async (r) => {
-      if (!r.ok) throw new Error(`Can't load ${id}`);
-      const c = (await r.json()) as Character;
-      c.url = base;
+    // built-in characters ship with the app; installed ones come from Rust as data: URLs
+    // (a file link into the app data folder didn't load)
+    const load = dir
+      ? invoke<[string, Record<string, string>]>("character_files", { id }).then(([json, files]) => {
+          const c = JSON.parse(json) as Character;
+          c.url = (f) => files[f] ?? "";
+          return c;
+        })
+      : fetch(`/characters/${id}/character.json`).then(async (r) => {
+          if (!r.ok) throw new Error(`Can't load ${id}`);
+          const c = (await r.json()) as Character;
+          c.url = (f) => `/characters/${id}/${f}`;
+          return c;
+        });
+    cache.set(key, load.then((c) => {
       // warm the sheets so the first animation doesn't flash
-      Object.values(c.sheets).forEach((s) => { const i = new Image(); i.src = base(s.file); });
+      Object.values(c.sheets).forEach((s) => { const i = new Image(); i.src = c.url(s.file); });
       return c;
     }));
     cache.get(key)!.catch(() => cache.delete(key));

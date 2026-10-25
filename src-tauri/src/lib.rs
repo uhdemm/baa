@@ -396,6 +396,25 @@ fn characters_list(app: AppHandle) -> Result<Vec<characters::CharacterInfo>, Str
     Ok(characters::list(&characters_dir(&app)?))
 }
 
+/// An installed character's files: character.json and its sheets as data: URLs.
+#[tauri::command]
+fn character_files(app: AppHandle, id: String) -> Result<(String, std::collections::HashMap<String, String>), String> {
+    use base64::Engine;
+    let dir = characters_dir(&app)?.join(&id);
+    if id.contains(['/', '\\', '.']) || !dir.is_dir() {
+        return Err("No such character".into());
+    }
+    let json = std::fs::read_to_string(dir.join("character.json")).map_err(err)?;
+    let mut files = std::collections::HashMap::new();
+    for e in std::fs::read_dir(&dir).map_err(err)?.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        let mime = if name.ends_with(".webp") { "image/webp" } else if name.ends_with(".png") { "image/png" } else { continue };
+        let bytes = std::fs::read(e.path()).map_err(err)?;
+        files.insert(name, format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)));
+    }
+    Ok((json, files))
+}
+
 #[tauri::command]
 fn character_import(app: AppHandle, path: String) -> Result<String, String> {
     let id = characters::import(&characters_dir(&app)?, std::path::Path::new(&path)).map_err(err)?;
@@ -476,13 +495,21 @@ async fn studio_master(app: AppHandle, id: String) -> Result<String, String> {
         let tell = |pr: studio::Progress| {
             let _ = app.emit("studio-progress", pr);
         };
-        studio::draw_master(&root, &p, &tell).map(|p| p.to_string_lossy().into_owned()).map_err(|e| {
+        // the page gets the picture itself: a file link to app data didn't show
+        studio::draw_master(&root, &p, &tell).and_then(|m| studio::data_url(&m, 640)).map_err(|e| {
             tell(studio::Progress { id: id.clone(), step: "error".into(), done: 0, total: 1, message: e.to_string() });
             err(e)
         })
     })
     .await
     .map_err(err)?
+}
+
+/// The master picture of a character in progress, to pick up where you left off.
+#[tauri::command]
+fn studio_preview(app: AppHandle, id: String) -> Result<String, String> {
+    let m = studio::project_dir(&studio_dir(&app)?, &id).join("master.png");
+    studio::data_url(&m, 640).map_err(err)
 }
 
 /// Draws every mood, packs and installs the character, and picks it.
@@ -656,7 +683,9 @@ pub fn run() {
             studio_create,
             studio_master,
             studio_moves,
-            open_apps
+            open_apps,
+            character_files,
+            studio_preview
         ])
         .build(tauri::generate_context!())
         .expect("error while building Baa")

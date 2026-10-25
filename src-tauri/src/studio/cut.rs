@@ -46,24 +46,52 @@ fn defringe(im: &mut RgbaImage) {
     }
 }
 
-/// Real alpha is kept; a flat background (no alpha) is keyed out from the corners.
+/// Real alpha is kept. Without it, the background is removed by flooding in from the
+/// edges: a flat colour (keyed from the corners) or a painted "transparency"
+/// checkerboard (light, colourless squares, which image models often draw instead of
+/// real transparency). Only what the flood reaches goes, so white eyes, teeth or wool
+/// inside the character's outline stay.
 pub fn clean(src: &RgbaImage) -> RgbaImage {
     let (w, h) = src.dimensions();
     let corners = [src.get_pixel(0, 0), src.get_pixel(w - 1, 0), src.get_pixel(0, h - 1), src.get_pixel(w - 1, h - 1)];
     let native = corners.iter().map(|p| p[3] as u32).sum::<u32>() <= 64;
-    let key = [0, 1, 2].map(|c| (corners.iter().map(|p| p[c] as u32).sum::<u32>() / 4) as f64);
     let mut out = src.clone();
-    for p in out.pixels_mut() {
-        let visible = if native {
-            p[3] >= VISIBLE
-        } else {
+    if native {
+        for p in out.pixels_mut() {
+            if p[3] < VISIBLE {
+                *p = Rgba([0, 0, 0, 0]);
+            }
+        }
+    } else {
+        let key = [0, 1, 2].map(|c| (corners.iter().map(|p| p[c] as u32).sum::<u32>() / 4) as f64);
+        let is_bg = |p: &Rgba<u8>| {
             let d = (0..3).map(|c| (p[c] as f64 - key[c]).powi(2)).sum::<f64>();
-            d > KEY_THRESHOLD_SQ
+            let (mx, mn) = (p[0].max(p[1]).max(p[2]), p[0].min(p[1]).min(p[2]));
+            d <= KEY_THRESHOLD_SQ || (mx - mn <= 14 && lum(*p) >= 175.0) // checkerboard squares
         };
-        if !visible {
-            *p = Rgba([0, 0, 0, 0]);
-        } else if !native {
-            p[3] = 255;
+        let mut gone = vec![false; (w * h) as usize];
+        let mut stack: Vec<(u32, u32)> = vec![];
+        for x in 0..w {
+            stack.push((x, 0));
+            stack.push((x, h - 1));
+        }
+        for y in 0..h {
+            stack.push((0, y));
+            stack.push((w - 1, y));
+        }
+        while let Some((x, y)) = stack.pop() {
+            let i = (y * w + x) as usize;
+            if gone[i] || !is_bg(src.get_pixel(x, y)) {
+                continue;
+            }
+            gone[i] = true;
+            if x > 0 { stack.push((x - 1, y)); }
+            if y > 0 { stack.push((x, y - 1)); }
+            if x + 1 < w { stack.push((x + 1, y)); }
+            if y + 1 < h { stack.push((x, y + 1)); }
+        }
+        for (i, p) in out.pixels_mut().enumerate() {
+            *p = if gone[i] { Rgba([0, 0, 0, 0]) } else { Rgba([p[0], p[1], p[2], 255]) };
         }
     }
     defringe(&mut out);
@@ -384,6 +412,24 @@ mod tests {
         }
         blob(&mut img, 500, 380, 3, 3); // a stray speck is not a frame
         assert!(find_frames(&img, 6).is_err());
+    }
+
+    #[test]
+    fn removes_a_painted_checkerboard_but_keeps_white_inside() {
+        let mut img = RgbaImage::new(40, 40);
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            *p = if (x / 8 + y / 8) % 2 == 0 { Rgba([255, 255, 255, 255]) } else { Rgba([204, 204, 204, 255]) };
+        }
+        blob(&mut img, 10, 10, 20, 20); // dark outline box
+        for yy in 13..27 {
+            for xx in 13..27 {
+                img.put_pixel(xx, yy, Rgba([255, 255, 255, 255])); // white eye inside
+            }
+        }
+        let c = clean(&img);
+        assert_eq!(c.get_pixel(1, 1)[3], 0);
+        assert_eq!(c.get_pixel(9, 1)[3], 0);
+        assert_eq!(c.get_pixel(20, 20)[3], 255);
     }
 
     #[test]

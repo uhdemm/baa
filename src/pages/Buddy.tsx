@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { PageProps } from "../App";
@@ -9,7 +9,7 @@ import Face from "../ui/Face";
 import Sprite from "../ui/Sprite";
 import { Row, Select, Toggle } from "../ui/controls";
 
-interface Project { id: string; name: string; description: string; refs: string[]; master_ok: boolean }
+interface Project { id: string; name: string; description: string; refs: string[]; master_ok: boolean; pixel: boolean }
 interface Progress { id: string; step: "master" | "sheets" | "pack" | "done" | "error"; done: number; total: number; message: string }
 
 /** A character card: plays its idle loop, and talks when you hover it. */
@@ -46,6 +46,18 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [unfinished, setUnfinished] = useState<Project[]>([]);
+  useEffect(() => {
+    // characters drawn but not finished (no moves yet) can be picked back up
+    Promise.all([invoke<Project[]>("studio_list"), allCharacters()])
+      .then(([ps, cs]) => setUnfinished(ps.filter((p) => !cs.some((c) => c.id === p.id))))
+      .catch(() => {});
+  }, []);
+  const resume = async (p: Project) => {
+    setError(null);
+    try { setMaster(await invoke<string>("studio_preview", { id: p.id })); setProject(p); setName(p.name); setDesc(p.description); setPixel(p.pixel); }
+    catch { setError(`${p.name} has no drawing yet. Press Draw it to start.`); setName(p.name); setDesc(p.description); setPixel(p.pixel); }
+  };
   useEffect(() => {
     invoke<{ codex: boolean }>("studio_status").then((s) => setCodex(s.codex)).catch(() => setCodex(false));
     const un = listen<Progress>("studio-progress", (e) => setProg(e.payload));
@@ -61,8 +73,7 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
     try {
       const p = await invoke<Project>("studio_create", { name, description: desc, refs, pixel });
       setProject(p);
-      const path = await invoke<string>("studio_master", { id: p.id });
-      setMaster(`${convertFileSrc(path)}?t=${Date.now()}`);
+      setMaster(await invoke<string>("studio_master", { id: p.id })); // the picture itself, as a data: URL
     } catch (e) { setError(String(e)); }
     setBusy(false);
   };
@@ -85,6 +96,12 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
   const step = prog?.step;
   return (
     <div className="studio">
+      {!master && unfinished.length > 0 && !busy && (
+        <div className="studio-refs">
+          <span className="hint">Pick up where you left off:</span>
+          {unfinished.map((p) => <button key={p.id} className="chip add" onClick={() => resume(p)}>{p.name}</button>)}
+        </div>
+      )}
       {!master && (
         <>
           <div className="studio-fields">

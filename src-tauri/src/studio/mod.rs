@@ -88,7 +88,23 @@ pub fn draw_master(root: &Path, p: &Project, progress: &impl Fn(Progress)) -> an
     tell("Drawing your character…");
     let refs: Vec<PathBuf> = p.refs.iter().map(PathBuf::from).collect();
     codex::generate(&prompts::master_prompt(&p.description, !refs.is_empty(), p.pixel, &fwd(&out)), &out, &refs, &d, |m| tell(m))?;
+    // a painted checkerboard or flat background becomes real transparency now, so the
+    // moves (drawn from this picture) don't copy the background too
+    let clean = cut::clean(&image::open(&out)?.to_rgba8());
+    clean.save(&out)?;
     Ok(out)
+}
+
+/// A picture as a data: URL the page can show directly, shrunk to fit `max` px.
+pub fn data_url(path: &Path, max: u32) -> anyhow::Result<String> {
+    use base64::Engine;
+    let mut img = image::open(path)?;
+    if img.width() > max || img.height() > max {
+        img = img.resize(max, max, image::imageops::FilterType::Triangle);
+    }
+    let mut png = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut png, image::ImageFormat::Png)?;
+    Ok(format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(png.into_inner())))
 }
 
 fn fwd(p: &Path) -> String {
