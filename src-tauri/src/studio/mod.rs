@@ -24,6 +24,9 @@ pub struct Project {
     /// pictures the user attached (copied into the project)
     pub refs: Vec<String>,
     pub master_ok: bool,
+    /// pixel-art character: drawn on a real pixel grid, shown crisp
+    #[serde(default)]
+    pub pixel: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -58,7 +61,7 @@ pub fn save(root: &Path, p: &Project) -> anyhow::Result<()> {
 }
 
 /// Starts (or restarts) a character: saves the brief and copies the attached pictures in.
-pub fn create(root: &Path, name: &str, description: &str, refs: &[PathBuf]) -> anyhow::Result<Project> {
+pub fn create(root: &Path, name: &str, description: &str, refs: &[PathBuf], pixel: bool) -> anyhow::Result<Project> {
     let id = slug(name);
     let d = project_dir(root, &id);
     std::fs::create_dir_all(d.join("refs"))?;
@@ -72,7 +75,7 @@ pub fn create(root: &Path, name: &str, description: &str, refs: &[PathBuf]) -> a
         std::fs::copy(r, &to)?;
         kept.push(to.to_string_lossy().into_owned());
     }
-    let p = Project { id, name: name.trim().to_string(), description: description.trim().to_string(), refs: kept, master_ok: false };
+    let p = Project { id, name: name.trim().to_string(), description: description.trim().to_string(), refs: kept, master_ok: false, pixel };
     save(root, &p)?;
     Ok(p)
 }
@@ -84,7 +87,7 @@ pub fn draw_master(root: &Path, p: &Project, progress: &impl Fn(Progress)) -> an
     let tell = |m: &str| progress(Progress { id: p.id.clone(), step: "master".into(), done: 0, total: 1, message: m.into() });
     tell("Drawing your character…");
     let refs: Vec<PathBuf> = p.refs.iter().map(PathBuf::from).collect();
-    codex::generate(&prompts::master_prompt(&p.description, !refs.is_empty(), &fwd(&out)), &out, &refs, &d, |m| tell(m))?;
+    codex::generate(&prompts::master_prompt(&p.description, !refs.is_empty(), p.pixel, &fwd(&out)), &out, &refs, &d, |m| tell(m))?;
     Ok(out)
 }
 
@@ -111,13 +114,13 @@ pub fn draw_moves(root: &Path, characters: &Path, p: &Project, progress: &(impl 
     // a sheet that comes back unusable (merged or missing frames) gets one more try
     let draw = |m: &prompts::Mood| -> anyhow::Result<()> {
         let out = d.join("sheets").join(format!("{}.png", m.id));
-        if out.exists() && cut::cut_sheet(&out, 6).is_ok() {
+        if out.exists() && cut::cut_sheet(&out, 6, p.pixel).is_ok() {
             return Ok(());
         }
         let mut last = None;
         for attempt in 0..2 {
             tell(format!("Drawing \"{}\"{}…", m.id, if attempt > 0 { " again" } else { "" }));
-            match codex::generate(&prompts::sheet_prompt(m, &fwd(&out)), &out, &[master.clone()], &d, |_| {}).and_then(|_| cut::cut_sheet(&out, 6).map(|_| ())) {
+            match codex::generate(&prompts::sheet_prompt(m, p.pixel, &fwd(&out)), &out, &[master.clone()], &d, |_| {}).and_then(|_| cut::cut_sheet(&out, 6, p.pixel).map(|_| ())) {
                 Ok(()) => {
                     done.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                     tell(format!("\"{}\" done", m.id));
@@ -154,9 +157,9 @@ pub fn draw_moves(root: &Path, characters: &Path, p: &Project, progress: &(impl 
     progress(Progress { id: p.id.clone(), step: "pack".into(), done: total, total, message: "Putting it together…".into() });
     let mut sheets = vec![];
     for m in prompts::MOODS {
-        sheets.push((m.id.to_string(), cut::cut_sheet(&d.join("sheets").join(format!("{}.png", m.id)), 6)?));
+        sheets.push((m.id.to_string(), cut::cut_sheet(&d.join("sheets").join(format!("{}.png", m.id)), 6, p.pixel)?));
     }
-    let meta = serde_json::json!({"id": p.id, "name": p.name, "author": "", "description": p.description});
+    let meta = serde_json::json!({"id": p.id, "name": p.name, "author": "", "description": p.description, "pixel": p.pixel});
     let out = characters.join(&p.id);
     if out.exists() {
         std::fs::remove_dir_all(&out)?;

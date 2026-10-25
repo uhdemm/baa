@@ -39,6 +39,7 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [refs, setRefs] = useState<string[]>([]);
+  const [pixel, setPixel] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
   const [master, setMaster] = useState<string | null>(null);
   const [prog, setProg] = useState<Progress | null>(null);
@@ -58,7 +59,7 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
   const draw = async () => {
     setError(null); setBusy(true); setMaster(null);
     try {
-      const p = await invoke<Project>("studio_create", { name, description: desc, refs });
+      const p = await invoke<Project>("studio_create", { name, description: desc, refs, pixel });
       setProject(p);
       const path = await invoke<string>("studio_master", { id: p.id });
       setMaster(`${convertFileSrc(path)}?t=${Date.now()}`);
@@ -92,6 +93,7 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
             <div className="studio-refs">
               {refs.map((r) => <span key={r} className="chip">{r.split(/[\\/]/).pop()}<button onClick={() => setRefs(refs.filter((x) => x !== r))}>×</button></span>)}
               <button className="btn ghost sm" onClick={pickRefs} disabled={busy}>+ Pictures of it (optional)</button>
+              <label className="pixel-opt"><Toggle on={pixel} onChange={setPixel} label="Pixel art" /> Pixel art, like a game sprite</label>
             </div>
           </div>
           <button className="btn primary" disabled={busy || !name.trim() || desc.trim().length < 8} onClick={draw}>{busy ? "Drawing… (about 3 minutes)" : "Draw it"}</button>

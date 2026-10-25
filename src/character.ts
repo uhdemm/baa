@@ -26,7 +26,9 @@ export interface Character {
   author: string;
   description: string;
   slot: { w: number; h: number };
-  belly_width: number;
+  belly_width?: number;
+  /** pixel art: drawn with hard square pixels, never smoothed */
+  pixel?: boolean;
   sheets: Record<string, Sheet>;
   states: Partial<Record<Mood, CharState>>;
   /** filled in on load: where the sheet files are */

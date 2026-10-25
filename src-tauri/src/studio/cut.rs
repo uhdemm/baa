@@ -11,6 +11,10 @@ const VISIBLE: u8 = 64;
 const KEY_THRESHOLD_SQ: f64 = 72.0 * 72.0;
 /// How tall a standing frame is in the output, px (shown at ~75 px, so 3x for sharp scaling)
 pub const STAND_H: f64 = 230.0;
+/// Pixel-art characters: a standing pose is this many real pixels tall...
+pub const STAND_PX: f64 = 48.0;
+/// ...and each pixel is stored as a crisp block this big (the app draws them pixelated).
+pub const PIXEL_BLOCK: u32 = 4;
 const PAD: u32 = 8;
 
 // ---------- alpha cleanup (ported from Sprite Studio's pixel_normalize, MIT) ----------
@@ -226,8 +230,31 @@ fn resize(img: &RgbaImage, s: f64) -> RgbaImage {
     out
 }
 
-/// Cuts one sheet into registered frames, all scaled so a standing pose is STAND_H tall.
-pub fn cut_sheet(path: &Path, n: usize) -> anyhow::Result<Vec<Frame>> {
+/// Pixel art: puts an AI "pixel art" picture onto a real pixel grid. It's shrunk to its
+/// true pixel size by averaging, edges are made hard (no soft halo), colours are rounded
+/// to a small palette (Sprite Studio's channel quantize, step 16), then every pixel is
+/// blown back up into a PIXEL_BLOCK square with no smoothing.
+fn pixelate(img: &RgbaImage, s: f64) -> RgbaImage {
+    let (w, h) = (((img.width() as f64 * s).round() as u32).max(1), ((img.height() as f64 * s).round() as u32).max(1));
+    let mut small = resize(img, s);
+    let small = if small.dimensions() == (w, h) { small } else { imageops::resize(&mut small, w, h, imageops::FilterType::Triangle) };
+    let mut hard = small.clone();
+    for p in hard.pixels_mut() {
+        if p[3] < 110 {
+            *p = Rgba([0, 0, 0, 0]);
+        } else {
+            for c in 0..3 {
+                p[c] = (((p[c] as u32 + 8) / 16 * 16).min(255)) as u8;
+            }
+            p[3] = 255;
+        }
+    }
+    imageops::resize(&hard, w * PIXEL_BLOCK, h * PIXEL_BLOCK, imageops::FilterType::Nearest)
+}
+
+/// Cuts one sheet into registered frames, all scaled so a standing pose is STAND_H tall
+/// (or, for pixel art, STAND_PX real pixels in PIXEL_BLOCK blocks).
+pub fn cut_sheet(path: &Path, n: usize, pixel: bool) -> anyhow::Result<Vec<Frame>> {
     let src = clean(&image::open(path)?.to_rgba8());
     let boxes = find_frames(&src, n)?;
     // the ground for each row of the grid: the lowest feet in that row
@@ -248,12 +275,17 @@ pub fn cut_sheet(path: &Path, n: usize) -> anyhow::Result<Vec<Frame>> {
     let tallest = raw.iter().map(|r| r.0.height()).max().unwrap_or(1) as f64;
     let mut standing: Vec<f64> = raw.iter().map(|r| r.0.height() as f64).filter(|h| *h >= tallest * 0.8).collect();
     standing.sort_by(|a, b| a.total_cmp(b));
-    let s = STAND_H / standing[standing.len() / 2];
+    let s = if pixel { STAND_PX } else { STAND_H } / standing[standing.len() / 2];
     Ok(raw
         .into_iter()
         .map(|(img, bottom, cy)| {
-            let lift = (ground[&row_of(cy)] - bottom) as f64 * s;
-            let img = resize(&img, s);
+            let mut lift = (ground[&row_of(cy)] - bottom) as f64 * s;
+            let img = if pixel {
+                lift = lift.round() * PIXEL_BLOCK as f64; // hops move in whole pixels
+                pixelate(&img, s)
+            } else {
+                resize(&img, s)
+            };
             let foot_x = feet_centre(&img);
             Frame { img, foot_x, lift }
         })
@@ -279,6 +311,7 @@ pub fn standard_states() -> serde_json::Value {
 /// Lays the cut sheets out on one shared slot and writes the pack into `out`.
 pub fn write_pack(out: &Path, meta: &serde_json::Value, sheets: &[(String, Vec<Frame>)], states: serde_json::Value) -> anyhow::Result<()> {
     std::fs::create_dir_all(out)?;
+    let pixel = meta.get("pixel").and_then(|v| v.as_bool()).unwrap_or(false);
     let all = sheets.iter().flat_map(|(_, f)| f);
     let half = all.clone().map(|f| f.foot_x.max(f.img.width() as f64 - f.foot_x)).fold(0.0, f64::max);
     let sw = (half * 2.0).ceil() as u32 + PAD * 2;
@@ -291,7 +324,10 @@ pub fn write_pack(out: &Path, meta: &serde_json::Value, sheets: &[(String, Vec<F
         let mut heads = vec![];
         for (k, f) in frames.iter().enumerate() {
             let (cx, cy) = ((k as u32 % cols) * sw, (k as u32 / cols) * sh);
-            let ox = (cx as f64 + sw as f64 / 2.0 - f.foot_x).round() as i64;
+            let mut ox = (cx as f64 + sw as f64 / 2.0 - f.foot_x).round() as i64;
+            if pixel {
+                ox -= (ox - cx as i64).rem_euclid(PIXEL_BLOCK as i64); // stay on the pixel grid
+            }
             let oy = (cy + sh) as i64 - f.img.height() as i64 - f.lift.round() as i64;
             imageops::overlay(&mut sheet, &f.img, ox, oy);
             // top-centre of the drawing: where the speech bubble's tail points
@@ -309,7 +345,7 @@ pub fn write_pack(out: &Path, meta: &serde_json::Value, sheets: &[(String, Vec<F
     char["format"] = json!(1);
     char["full_body"] = json!(true);
     char["slot"] = json!({"w": sw, "h": sh});
-    char["stand_height"] = json!(STAND_H);
+    char["stand_height"] = json!(if pixel { STAND_PX * PIXEL_BLOCK as f64 } else { STAND_H });
     char["sheets"] = serde_json::Value::Object(sheets_meta);
     char["states"] = states;
     std::fs::write(out.join("character.json"), serde_json::to_vec_pretty(&char)?)?;

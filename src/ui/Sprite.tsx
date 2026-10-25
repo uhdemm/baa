@@ -42,6 +42,7 @@ export default function Sprite({ character: c, mood, level = 0, height, classNam
         backgroundSize: `${sheet.cols * 100}% ${sheet.rows * 100}%`,
         backgroundPosition: `${sheet.cols > 1 ? (col / (sheet.cols - 1)) * 100 : 0}% ${sheet.rows > 1 ? (row / (sheet.rows - 1)) * 100 : 0}%`,
         backgroundRepeat: "no-repeat",
+        imageRendering: c.pixel ? "pixelated" : undefined,
       }}
     />
   );

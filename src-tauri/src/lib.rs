@@ -462,9 +462,9 @@ fn studio_list(app: AppHandle) -> Result<Vec<studio::Project>, String> {
 }
 
 #[tauri::command]
-fn studio_create(app: AppHandle, name: String, description: String, refs: Vec<String>) -> Result<studio::Project, String> {
+fn studio_create(app: AppHandle, name: String, description: String, refs: Vec<String>, pixel: Option<bool>) -> Result<studio::Project, String> {
     let refs: Vec<std::path::PathBuf> = refs.into_iter().map(Into::into).collect();
-    studio::create(&studio_dir(&app)?, &name, &description, &refs).map_err(err)
+    studio::create(&studio_dir(&app)?, &name, &description, &refs, pixel.unwrap_or(false)).map_err(err)
 }
 
 /// Draws the master pose (a few minutes). Progress arrives as "studio-progress" events.

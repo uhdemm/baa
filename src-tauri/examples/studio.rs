@@ -1,6 +1,6 @@
 //! Run Character Studio without the app (same code the Studio page uses).
 //!
-//!     cargo run --example studio -- master <projects dir> <name> "<description>" [ref.png ...]
+//!     cargo run --example studio -- master <projects dir> <name> "<description>" [--pixel] [ref.png ...]
 //!     cargo run --example studio -- moves  <projects dir> <characters dir> <id>
 //!     cargo run --example studio -- pack   <projects dir> <characters dir> <id>    (re-pack drawn sheets only)
 
@@ -13,8 +13,9 @@ fn main() -> anyhow::Result<()> {
     match a.first().map(String::as_str) {
         Some("master") => {
             let root = PathBuf::from(&a[1]);
-            let refs: Vec<PathBuf> = a[4..].iter().map(PathBuf::from).collect();
-            let p = studio::create(&root, &a[2], &a[3], &refs)?;
+            let pixel = a.iter().any(|x| x == "--pixel");
+            let refs: Vec<PathBuf> = a[4..].iter().filter(|x| *x != "--pixel").map(PathBuf::from).collect();
+            let p = studio::create(&root, &a[2], &a[3], &refs, pixel)?;
             let out = studio::draw_master(&root, &p, &tell)?;
             println!("master: {}  (id {})", out.display(), p.id);
         }
@@ -31,11 +32,11 @@ fn main() -> anyhow::Result<()> {
             for m in studio::prompts::MOODS {
                 let f = d.join(format!("{}.png", m.id));
                 if f.exists() {
-                    sheets.push((m.id.to_string(), studio::cut::cut_sheet(&f, 6)?));
+                    sheets.push((m.id.to_string(), studio::cut::cut_sheet(&f, 6, p.pixel)?));
                     println!("cut {}", m.id);
                 }
             }
-            let meta = serde_json::json!({"id": p.id, "name": p.name, "author": "", "description": p.description});
+            let meta = serde_json::json!({"id": p.id, "name": p.name, "author": "", "description": p.description, "pixel": p.pixel});
             studio::cut::write_pack(&chars.join(&p.id), &meta, &sheets, studio::cut::standard_states())?;
             println!("packed into {}", chars.join(&p.id).display());
         }

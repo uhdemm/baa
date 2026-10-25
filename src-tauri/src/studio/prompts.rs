@@ -109,7 +109,13 @@ pub const MOODS: &[Mood] = &[
 
 /// The master pose. `has_refs`: the user attached pictures of the character or the
 /// style they want; those win over everything except the small-size rules.
-pub fn master_prompt(description: &str, has_refs: bool, out: &str) -> String {
+const PIXEL_RULES: &str = "\nPIXEL ART: draw it as a crisp pixel-art game sprite, like a hand-made 16-bit sprite: \
+a real pixel grid where a standing pose is about 48 pixels tall, shown enlarged with hard square pixels (every pixel \
+a big flat square block, all blocks the same size, aligned to one grid), a limited warm palette of about 12-16 colours, \
+a 1-pixel dark outline around the silhouette, simple 2-3 tone shading, no anti-aliasing, no blur, no gradients, \
+no soft edges.\n";
+
+pub fn master_prompt(description: &str, has_refs: bool, pixel: bool, out: &str) -> String {
     let refs = if has_refs {
         "Use the attached images as the EXACT character and drawing style (line quality, texture, proportions, \
 colours, personality). Do not simplify it into a generic cartoon.\n\n"
@@ -117,7 +123,7 @@ colours, personality). Do not simplify it into a generic cartoon.\n\n"
         ""
     };
     format!(
-        "{refs}Design a character for a voice-typing app called Baa: {description}\n\n\
+        "{refs}Design a character for a voice-typing app called Baa: {description}\n{pixel}\n\
 Draw it in whatever style the description asks for. It will be shown SMALL on a computer screen (about 75 \
 pixels tall, standing on the taskbar, a speech bubble next to it), so whatever the style:\n\
 - the outer silhouette is clear and a little bolder than the inner lines\n\
@@ -127,11 +133,12 @@ pixels tall, standing on the taskbar, a speech bubble next to it), so whatever t
 Pose: full body, standing, facing the viewer at a slight three-quarter angle, arms relaxed, mouth closed, \
 feet on the ground. Show the WHOLE body from the top of the head to the bottom of the feet, centred, with \
 clear empty space all around; nothing cut off.\n\n\
-Transparent background (PNG with alpha): no paper, no background colour, no ground, no shadow, no text. Save to {out}"
+Transparent background (PNG with alpha): no paper, no background colour, no ground, no shadow, no text. Save to {out}",
+        pixel = if pixel { PIXEL_RULES } else { "" }
     )
 }
 
-pub fn sheet_prompt(m: &Mood, out: &str) -> String {
+pub fn sheet_prompt(m: &Mood, pixel: bool, out: &str) -> String {
     let keys = m.keys.iter().enumerate().map(|(i, k)| format!("{}. {k}", i + 1)).collect::<Vec<_>>().join("\n");
     let same = if m.lipsync {
         "\nIMPORTANT: this is for lip sync, so the head, eyes, ears, body, arms and legs are IDENTICAL in all 6 \
@@ -143,7 +150,7 @@ frames, traced from frame 1 in exactly the same position. ONLY THE MOUTH changes
         "Use the attached image as the exact character: same design, colours, proportions, line quality and drawing style. \
 Keep its identity in every frame (no new features, no colour drift, no change of proportions).\n\n\
 Make an ANIMATION KEY-POSE SHEET of 6 frames of it {what}, in a 3 x 2 grid (3 frames on top, 3 below, read \
-left to right).\n\n\
+left to right).\n{pixel}\n\
 Every frame: the SAME size and scale as the attached image, full body from head to feet, feet standing on the \
 same invisible ground line at the bottom of each cell (a jump goes up from that line), facing the same way. \
 Name limbs by depth: the NEAR arm/leg is closer to the camera, the FAR one is behind it and keeps its slightly \
@@ -152,6 +159,7 @@ the cells so no frame touches another. Filled areas (fur, wool, clothes) stay so
 see-through.\n{same}\n{keys}\n\n\
 Transparent background (PNG with alpha): no background colour, no shadows, no ground line, no grid lines, no \
 frame numbers, no text. Save to {out}",
-        what = m.what
+        what = m.what,
+        pixel = if pixel { format!("{PIXEL_RULES}Keep exactly the same pixel size, palette and outline as the attached sprite in every frame.\n") } else { String::new() }
     )
 }
