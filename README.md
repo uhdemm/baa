@@ -60,3 +60,7 @@ Character Studio draws with the [Codex CLI](https://github.com/openai/codex) and
 with Silero VAD. Character Studio adapts the pipeline from
 [Sprite Studio](https://github.com/JohnKinyanjui/sprite-maker) by John Kinyanjui (MIT); see
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
