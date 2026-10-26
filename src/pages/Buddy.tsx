@@ -9,7 +9,7 @@ import Face from "../ui/Face";
 import Sprite from "../ui/Sprite";
 import { Row, Select, Toggle } from "../ui/controls";
 
-interface Project { id: string; name: string; description: string; refs: string[]; master_ok: boolean; pixel: boolean }
+interface Project { id: string; name: string; description: string; refs: string[]; master_ok: boolean; pixel: boolean; sheets_done?: number; sheets_total?: number }
 interface Progress { id: string; step: "master" | "sheets" | "pack" | "done" | "error"; done: number; total: number; message: string }
 
 /** A character card: plays its idle loop, and talks when you hover it. */
@@ -94,12 +94,18 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
     );
   }
   const step = prog?.step;
+  // picked back up after the moves were cut short (Baa closed or restarted mid-way)
+  const partly = !!project?.master_ok && (project.sheets_done ?? 0) > 0;
   return (
     <div className="studio">
       {!master && unfinished.length > 0 && !busy && (
         <div className="studio-refs">
           <span className="hint">Pick up where you left off:</span>
-          {unfinished.map((p) => <button key={p.id} className="chip add" onClick={() => resume(p)}>{p.name}</button>)}
+          {unfinished.map((p) => (
+            <button key={p.id} className="chip add" onClick={() => resume(p)}>
+              {p.name}{p.sheets_done ? ` · ${p.sheets_done} of ${p.sheets_total} moves` : ""}
+            </button>
+          ))}
         </div>
       )}
       {!master && (
@@ -120,12 +126,24 @@ function Studio({ onMade }: { onMade: (id: string) => void }) {
         <div className="studio-master">
           <div className="studio-pic"><img src={master} alt={name} /></div>
           <div className="studio-side">
-            <b>Is this {name}?</b>
-            <span className="hint">Next it draws 7 sets of moves (talking, thinking, sending, sleeping…) in this exact look. That takes about 15 minutes; you can keep using your PC.</span>
+            {partly ? (
+              <>
+                <b>{name} is almost done</b>
+                <span className="hint">
+                  {project!.sheets_done} of {project!.sheets_total} sets of moves are drawn; the rest stopped when Baa was closed.
+                  Finishing draws only the missing ones (a few minutes) and adds {name} to your buddies.
+                </span>
+              </>
+            ) : (
+              <>
+                <b>Is this {name}?</b>
+                <span className="hint">Next it draws 7 sets of moves (talking, thinking, sending, sleeping…) in this exact look. That takes about 15 minutes; you can keep using your PC.</span>
+              </>
+            )}
             {!busy && (
               <div className="studio-acts">
-                <button className="btn primary" onClick={moves}>Looks good, make the moves</button>
-                <button className="btn ghost" onClick={draw}>Draw it again</button>
+                <button className="btn primary" onClick={moves}>{partly ? "Finish the moves" : "Looks good, make the moves"}</button>
+                {!partly && <button className="btn ghost" onClick={draw}>Draw it again</button>}
               </div>
             )}
           </div>
@@ -210,6 +228,9 @@ export default function Buddy({ settings, save }: PageProps) {
               </Row>
               <Row title="Dozes off" desc="Falls asleep after a minute and a half with nothing to do, and wakes up when you talk.">
                 <Toggle on={settings.buddy_sleeps} onChange={(v) => set("buddy_sleeps", v)} />
+              </Row>
+              <Row title="Bouncy" desc="Jiggle physics: squashes, stretches and wobbles a little every time it moves, lands or talks.">
+                <Toggle on={settings.buddy_jiggle ?? true} onChange={(v) => set("buddy_jiggle", v)} />
               </Row>
             </div>
           </div>

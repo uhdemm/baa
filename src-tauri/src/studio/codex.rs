@@ -155,12 +155,18 @@ Check chatgpt.com/codex/settings/usage, then try again."
         );
     }
     let why = tail.lock().iter().rev().find(|l| l.to_lowercase().contains("error") || l.contains("login")).cloned();
+    if tail.lock().iter().any(|l| l.contains("moderation_blocked") || l.contains("safety system")) {
+        anyhow::bail!(REFUSED);
+    }
     anyhow::bail!(
         "Codex didn't save a picture ({}){}",
         if status.success() { "it finished without one" } else { "it stopped with an error" },
         why.map(|w| format!(": {w}")).unwrap_or_default()
     )
 }
+
+/// OpenAI's image safety filter turned the picture down. Asking again gets the same answer.
+pub const REFUSED: &str = "the image service's safety filter refused to draw it";
 
 fn codex_home() -> Option<PathBuf> {
     std::env::var_os("CODEX_HOME")

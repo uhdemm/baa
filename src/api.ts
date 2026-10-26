@@ -60,6 +60,7 @@ export interface Settings {
   buddy_x: number;
   buddy_y: number;
   buddy_sleeps: boolean;
+  buddy_jiggle: boolean;
   character: string;
   onboarded: boolean;
 }

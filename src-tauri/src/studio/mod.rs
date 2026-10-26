@@ -142,7 +142,14 @@ pub fn draw_moves(root: &Path, characters: &Path, p: &Project, progress: &(impl 
                     tell(format!("\"{}\" done", m.id));
                     return Ok(());
                 }
-                Err(e) => last = Some(e),
+                Err(e) => {
+                    // the safety filter says the same thing every time, so don't spend another go on it
+                    let refused = e.to_string().contains(codex::REFUSED);
+                    last = Some(e);
+                    if refused {
+                        break;
+                    }
+                }
             }
         }
         Err(last.unwrap())
@@ -152,28 +159,42 @@ pub fn draw_moves(root: &Path, characters: &Path, p: &Project, progress: &(impl 
         prompts::MOODS.iter().step_by(2).collect(),
         prompts::MOODS.iter().skip(1).step_by(2).collect(),
     ];
-    let errs = std::sync::Mutex::new(Vec::<String>::new());
+    let errs = std::sync::Mutex::new(Vec::<(&str, String)>::new());
     std::thread::scope(|s| {
         for lane in lanes {
             let (draw, errs) = (&draw, &errs);
             s.spawn(move || {
                 for m in lane {
                     if let Err(e) = draw(m) {
-                        errs.lock().unwrap().push(format!("{}: {e}", m.id));
+                        errs.lock().unwrap().push((m.id, e.to_string()));
                     }
                 }
             });
         }
     });
-    let errs = errs.into_inner().unwrap();
+    // the extras (fidget, dance) may fail without stopping the character from being made
+    let errs: Vec<(&str, String)> = errs.into_inner().unwrap().into_iter().filter(|(id, _)| !prompts::OPTIONAL.contains(id)).collect();
     if !errs.is_empty() {
-        anyhow::bail!("Some moves didn't come out right ({}). Press Make the moves again to retry just those.", errs.join("; "));
+        let (refused, other): (Vec<_>, Vec<_>) = errs.iter().partition(|(_, e)| e.contains(codex::REFUSED));
+        if other.is_empty() {
+            anyhow::bail!(
+                "OpenAI's image safety filter wouldn't draw these moves: {}. Pressing again won't change its mind; \
+a different description or picture (more clothes, a less revealing look) usually gets through.",
+                refused.iter().map(|(id, _)| *id).collect::<Vec<_>>().join(", ")
+            );
+        }
+        let list = errs.iter().map(|(id, e)| format!("{id}: {e}")).collect::<Vec<_>>().join("; ");
+        anyhow::bail!("Some moves didn't come out right ({list}). Press Make the moves again to retry just those.");
     }
 
     progress(Progress { id: p.id.clone(), step: "pack".into(), done: total, total, message: "Putting it together…".into() });
     let mut sheets = vec![];
     for m in prompts::MOODS {
-        sheets.push((m.id.to_string(), cut::cut_sheet(&d.join("sheets").join(format!("{}.png", m.id)), 6, p.pixel)?));
+        let f = d.join("sheets").join(format!("{}.png", m.id));
+        if !f.exists() && prompts::OPTIONAL.contains(&m.id) {
+            continue;
+        }
+        sheets.push((m.id.to_string(), cut::cut_sheet(&f, 6, p.pixel)?));
     }
     let meta = serde_json::json!({"id": p.id, "name": p.name, "author": "", "description": p.description, "pixel": p.pixel});
     let out = characters.join(&p.id);

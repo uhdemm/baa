@@ -192,6 +192,8 @@ pub struct Settings {
     pub buddy_y: f64,
     /// Doze off after a while with nothing to do
     pub buddy_sleeps: bool,
+    /// Springy squash-and-stretch whenever it moves (jiggle physics)
+    pub buddy_jiggle: bool,
     pub character: String,
     pub onboarded: bool,
 }
@@ -238,6 +240,7 @@ impl Default for Settings {
             buddy_x: 0.88,
             buddy_y: 1.0,
             buddy_sleeps: true,
+            buddy_jiggle: true,
             character: "sheep".into(),
             onboarded: false,
         }

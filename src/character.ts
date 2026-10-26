@@ -15,6 +15,8 @@ export interface CharState {
   fps?: number;
   /** loop: repeat · once: play and hold the last frame · mouth: frame follows the mic */
   mode: "loop" | "once" | "mouth";
+  /** loop only: little actions it breaks into between loops (a stretch, a dance), one at a time */
+  variants?: CharState[];
 }
 
 export interface Sheet { file: string; cols: number; rows: number; frames: number; heads: [number, number][] }

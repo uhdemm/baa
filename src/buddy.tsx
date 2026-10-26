@@ -7,7 +7,7 @@ import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Character, duration, findCharacter, Mood, stateFor } from "./character";
+import { Character, duration, findCharacter, loadCharacter, Mood, stateFor } from "./character";
 import Sprite, { headOf } from "./ui/Sprite";
 import { applyAppearance, type Appearance } from "./appearance";
 import "./styles.css";
@@ -16,7 +16,7 @@ document.documentElement.classList.add("overlay", "buddy-page");
 
 type State = "idle" | "listen" | "think" | "send" | "nothing" | "error" | "cancel";
 interface OverlayEvent { state: State; message: string | null; kind: "dictate" | "command" }
-interface BuddySettings { character: string; buddy_size: string; buddy_place: string; buddy_sleeps: boolean; appearance: Appearance }
+interface BuddySettings { character: string; buddy_size: string; buddy_place: string; buddy_sleeps: boolean; buddy_jiggle?: boolean; appearance: Appearance }
 
 // full-body height on screen, px (medium = about the size of a taskbar icon stack)
 const SIZE: Record<string, number> = { small: 56, medium: 76, large: 110 };
@@ -45,9 +45,10 @@ function Buddy() {
     const apply = (v: BuddySettings) => {
       setS(v);
       if (v.appearance) applyAppearance(v.appearance);
-      findCharacter(v.character).then(setC).catch(() => findCharacter("sheep").then(setC));
+      // demo: buddy.html?char=<id> plays a pack served from /characters/<id> (for checking a new character)
+      (demo?.get("char") ? loadCharacter(demo.get("char")!) : findCharacter(v.character)).then(setC).catch(() => findCharacter("sheep").then(setC));
     };
-    if (demo) { apply({ character: "sheep", buddy_size: "medium", buddy_place: "taskbar", buddy_sleeps: true, appearance: undefined as unknown as Appearance }); return; }
+    if (demo) { apply({ character: "sheep", buddy_size: "medium", buddy_place: "taskbar", buddy_sleeps: true, buddy_jiggle: true, appearance: undefined as unknown as Appearance }); return; }
     invoke<BuddySettings>("get_settings").then(apply);
     const a = listen<BuddySettings>("buddy-changed", (e) => apply(e.payload));
     const b = listen<Appearance>("appearance-changed", (e) => applyAppearance(e.payload));
@@ -149,7 +150,7 @@ function Buddy() {
         onDoubleClick={() => !demo && invoke("open_baa", { page: null })}
         title="Drag to move · double-click to open Baa"
       >
-        <Sprite character={c} mood={mood} level={level} height={height} onRef={(el) => { spriteEl.current = el; }} />
+        <Sprite character={c} mood={mood} level={level} height={height} jiggle={s?.buddy_jiggle ?? true} onRef={(el) => { spriteEl.current = el; }} />
       </div>
     </div>
   );

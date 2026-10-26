@@ -475,9 +475,24 @@ fn studio_status() -> StudioStatus {
     StudioStatus { codex: studio::codex::available() }
 }
 
+/// A studio project plus how many of its move sheets are already drawn, so a job that was
+/// cut short (app closed mid-way) can say "6 of 7 done" and finish only what's missing.
+#[derive(serde::Serialize)]
+struct StudioItem {
+    #[serde(flatten)]
+    project: studio::Project,
+    sheets_done: usize,
+    sheets_total: usize,
+}
+
 #[tauri::command]
-fn studio_list(app: AppHandle) -> Result<Vec<studio::Project>, String> {
-    Ok(studio::list(&studio_dir(&app)?))
+fn studio_list(app: AppHandle) -> Result<Vec<StudioItem>, String> {
+    let root = studio_dir(&app)?;
+    Ok(studio::list(&root).into_iter().map(|p| {
+        let sheets = studio::project_dir(&root, &p.id).join("sheets");
+        let done = studio::prompts::MOODS.iter().filter(|m| sheets.join(format!("{}.png", m.id)).exists()).count();
+        StudioItem { project: p, sheets_done: done, sheets_total: studio::prompts::MOODS.len() }
+    }).collect())
 }
 
 #[tauri::command]

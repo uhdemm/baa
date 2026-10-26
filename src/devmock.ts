@@ -12,7 +12,7 @@ const settings = {
   custom_words: ["Big Square", "Baa"], replacements: [{ from: "big square", to: "Big Square" }],
   snippets: [{ trigger: "my email", text: "adam@example.com" }], app_profiles: [{ exe: "discord.exe", auto_send: "enter", style: "lowercase" }],
   unload_after_secs: 300, overlay_position: "bottom", show_overlay: true, sounds: true, character: "sheep",
-  overlay_style: "buddy", buddy_place: "taskbar", buddy_size: "medium", buddy_x: 0.88, buddy_y: 1, buddy_sleeps: true,
+  overlay_style: "buddy", buddy_place: "taskbar", buddy_size: "medium", buddy_x: 0.88, buddy_y: 1, buddy_sleeps: true, buddy_jiggle: true,
   onboarded: !location.search.includes("setup"),
 };
 const now = Math.floor(Date.now() / 1000);

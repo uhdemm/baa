@@ -13,6 +13,9 @@ pub struct Mood {
     pub keys: [&'static str; 6],
 }
 
+/// Extras: a character still works without these (its idle just has fewer breaks).
+pub const OPTIONAL: &[&str] = &["fidget", "dance"];
+
 pub const MOODS: &[Mood] = &[
     Mood {
         id: "idle",
@@ -20,11 +23,11 @@ pub const MOODS: &[Mood] = &[
         lipsync: false,
         keys: [
             "REST: the master pose, standing relaxed, small smile.",
-            "BREATHE IN: same pose, body very slightly taller and rounder.",
-            "BLINK: same as REST with the eyes closed.",
-            "LOOK: same pose, eyes and head glancing to its NEAR side.",
-            "SWAY: weight shifted onto the FAR foot, tiny happy bounce.",
-            "SCRATCH: one hoof scratching the side of its head, eyes half shut.",
+            "BIG BREATH: shoulders lifted, chest out, eyes closed, calm content face.",
+            "LOOK AROUND: head and eyes turned to its NEAR side, curious, one hand shading its eyes.",
+            "HIP SHIFT: weight on the FAR foot, NEAR hand on its hip, relaxed smirk.",
+            "SIDE STRETCH: leaning to one side with the NEAR arm stretched over its head.",
+            "SCRATCH: one hand scratching the side of its head, eyes half shut, puzzled.",
         ],
     },
     Mood {
@@ -45,11 +48,11 @@ pub const MOODS: &[Mood] = &[
         what: "thinking hard while it works something out (a loop)",
         lipsync: false,
         keys: [
-            "HMM: one hoof on its chin, eyes looking up.",
+            "HMM: one hand on its chin, eyes looking up.",
             "HMM 2: same, eyes looking up to the other side, mouth pursed.",
-            "TAP: tapping its temple with one hoof, tongue poking out of the corner of its mouth.",
-            "TAP 2: same with the hoof lifted a little off the head.",
-            "AHA: eyes wide, one hoof raised with a pointing idea gesture, mouth in a little 'oh!'.",
+            "TAP: tapping its temple with one finger, tongue poking out of the corner of its mouth.",
+            "PACE: turned a little sideways mid-step, both hands behind its back, frowning in thought.",
+            "AHA: eyes wide, one finger raised in a pointing idea gesture, mouth in a little 'oh!'.",
             "GOT IT: confident grin, both arms back down.",
         ],
     },
@@ -58,9 +61,9 @@ pub const MOODS: &[Mood] = &[
         what: "sending a message: it winds up and throws a paper airplane forward, then celebrates",
         lipsync: false,
         keys: [
-            "READY: holding a small white paper airplane up in its NEAR hoof, looking determined.",
+            "READY: holding a small white paper airplane up in its NEAR hand, looking determined.",
             "WIND UP: leaning back, NEAR arm cocked behind its head with the airplane.",
-            "THROW: lunging forward, NEAR arm extended forward, the airplane just leaving the hoof.",
+            "THROW: lunging forward, NEAR arm extended forward, the airplane just leaving the hand.",
             "FOLLOW THROUGH: arm across the body, airplane gone off the edge of the cell, eyes following it.",
             "YES: both arms up in a small cheer, big open smile.",
             "SETTLE: back to standing, proud little smile.",
@@ -71,12 +74,12 @@ pub const MOODS: &[Mood] = &[
         what: "something went wrong: grumpy and flustered, then sulking",
         lipsync: false,
         keys: [
-            "HUH: confused frown, one ear up, one down.",
+            "HUH: confused frown, head tilted, one eyebrow up.",
             "GRR: stomping the NEAR foot, cheeks puffed, angry eyebrows.",
             "STOMP: the other foot stomping, fists clenched.",
             "SIGH: shoulders dropped, eyes closed, big sigh.",
             "ARMS CROSSED: arms folded, looking away, sulking.",
-            "OKAY: shrugging with both hooves up, wobbly smile.",
+            "OKAY: shrugging with both hands up, wobbly smile.",
         ],
     },
     Mood {
@@ -87,8 +90,8 @@ pub const MOODS: &[Mood] = &[
             "YAWN: stretching both arms up in a huge yawn, eyes shut.",
             "SIT: sitting down on its bottom, eyelids heavy.",
             "ASLEEP: sitting, head drooped forward, eyes shut, mouth a little open.",
-            "SNORE: same as asleep with cheeks puffed mid-snore and ears flopped down.",
-            "STARTLE: jolted awake and back on its feet, eyes huge, ears straight up.",
+            "SNORE: slumped further to one side, cheeks puffed mid-snore, head lolling.",
+            "STARTLE: jolted awake and back on its feet, eyes huge, arms flung up in surprise.",
             "READY: standing, alert and smiling at the viewer.",
         ],
     },
@@ -101,8 +104,34 @@ pub const MOODS: &[Mood] = &[
             "HOP: in the air, body stretched tall, arms up.",
             "LAND: landing with knees bent, body squashed a little.",
             "STAND: standing up straight, eyes bright.",
-            "WAVE: waving with the NEAR hoof, big smile.",
-            "WAVE 2: same wave with the hoof at the other end of the swing.",
+            "WAVE: waving with the NEAR hand, big smile.",
+            "WAVE 2: same wave with the hand at the other end of the swing, leaning into it.",
+        ],
+    },
+    Mood {
+        id: "fidget",
+        what: "fiddling about while it waits: six different little actions it does now and then",
+        lipsync: false,
+        keys: [
+            "STRETCH: both arms stretched high over its head, up on tiptoes, eyes shut.",
+            "OVER THE SHOULDER: body turned slightly away, looking back over the NEAR shoulder at the viewer.",
+            "FIX HAIR: one hand pushing its hair (or fur, or hat) back off its face, head tilted.",
+            "HANDS ON HIPS: both hands on its hips, chest out, confident grin.",
+            "LEAN: leaning on one leg with the other foot crossed behind it, waving lazily at the viewer.",
+            "PEEK: bent forward with both hands on its knees, peering at the viewer curiously.",
+        ],
+    },
+    Mood {
+        id: "dance",
+        what: "doing a short happy dance (a loop)",
+        lipsync: false,
+        keys: [
+            "STEP NEAR: stepping to its NEAR side, both arms swinging that way, big grin.",
+            "STEP FAR: stepping to its FAR side, both arms swinging the other way.",
+            "SPIN: mid-twirl, body turned sideways, one arm up, hair or fur flying out.",
+            "HOP: both arms up, hopping off the ground, eyes shut happily.",
+            "POINT: pointing up with the NEAR hand, other hand on its hip, hip popped out.",
+            "TA-DA: arms spread wide in a finishing pose, winking at the viewer.",
         ],
     },
 ];
@@ -144,7 +173,9 @@ pub fn sheet_prompt(m: &Mood, pixel: bool, out: &str) -> String {
         "\nIMPORTANT: this is for lip sync, so the head, eyes, ears, body, arms and legs are IDENTICAL in all 6 \
 frames, traced from frame 1 in exactly the same position. ONLY THE MOUTH changes.\n"
     } else {
-        ""
+        "\nIMPORTANT: every frame is a clearly DIFFERENT pose (arms, legs, head and body all placed differently); \
+no two frames may look alike, and the poses are big and expressive, never subtle. Draw ONE character per frame, \
+never two copies side by side.\n"
     };
     format!(
         "Use the attached image as the exact character: same design, colours, proportions, line quality and drawing style. \

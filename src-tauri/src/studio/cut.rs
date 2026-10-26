@@ -69,10 +69,29 @@ pub fn clean(src: &RgbaImage) -> RgbaImage {
         }
     } else {
         let key = [0, 1, 2].map(|c| (corners.iter().map(|p| p[c] as u32).sum::<u32>() / 4) as f64);
-        let is_bg = |p: &Rgba<u8>| {
-            let d = (0..3).map(|c| (p[c] as f64 - key[c]).powi(2)).sum::<f64>();
+        // a painted checkerboard can be any two greys (one sheet used ~197 and ~136), so learn
+        // the grey colours that cover the border and treat both as background
+        let mut border: std::collections::HashMap<[u8; 3], usize> = Default::default();
+        let mut total = 0usize;
+        let ring = (0..w).flat_map(|x| [(x, 0), (x, h - 1)]).chain((0..h).flat_map(|y| [(0, y), (w - 1, y)]));
+        for (x, y) in ring {
+            let p = src.get_pixel(x, y);
             let (mx, mn) = (p[0].max(p[1]).max(p[2]), p[0].min(p[1]).min(p[2]));
-            d <= KEY_THRESHOLD_SQ || (mx - mn <= 14 && lum(*p) >= 175.0) // checkerboard squares
+            total += 1;
+            if mx - mn <= 14 {
+                *border.entry([p[0] / 12, p[1] / 12, p[2] / 12]).or_default() += 1;
+            }
+        }
+        let greys: Vec<[f64; 3]> = border
+            .iter()
+            .filter(|(_, n)| **n * 8 >= total) // each covers at least an eighth of the border
+            .map(|(k, _)| k.map(|v| v as f64 * 12.0 + 6.0))
+            .collect();
+        let is_bg = |p: &Rgba<u8>| {
+            let dist = |k: &[f64; 3]| (0..3).map(|c| (p[c] as f64 - k[c]).powi(2)).sum::<f64>();
+            let (mx, mn) = (p[0].max(p[1]).max(p[2]), p[0].min(p[1]).min(p[2]));
+            dist(&key) <= KEY_THRESHOLD_SQ
+                || (mx - mn <= 14 && (lum(*p) >= 175.0 || greys.iter().any(|g| dist(g) <= 26.0 * 26.0))) // checkerboard squares
         };
         let mut gone = vec![false; (w * h) as usize];
         let mut stack: Vec<(u32, u32)> = vec![];
@@ -213,23 +232,52 @@ pub fn find_frames(im: &RgbaImage, n: usize, cols: u32) -> anyhow::Result<Frames
         // the emptiest row/column within an eighth of the sheet of each grid line
         let ink_row = |y: u32| (0..w).filter(|&x| mask[(y * w + x) as usize]).count();
         let ink_col = |x: u32| (0..h).filter(|&y| mask[(y * w + x) as usize]).count();
-        for k in 1..rows {
-            let c = h * k / rows;
-            let (lo, hi) = (c.saturating_sub(h / 8), (c + h / 8).min(h - 1));
-            let y = (lo..=hi).min_by_key(|&y| ink_row(y)).unwrap_or(c);
-            for x in 0..w {
-                dil[(y * w + x) as usize] = false;
+        let seams = |cols: u32, rows: u32| {
+            let ys: Vec<u32> = (1..rows).map(|k| {
+                let c = h * k / rows;
+                let (lo, hi) = (c.saturating_sub(h / 8), (c + h / 8).min(h - 1));
+                (lo..=hi).min_by_key(|&y| ink_row(y)).unwrap_or(c)
+            }).collect();
+            let xs: Vec<u32> = (1..cols).map(|k| {
+                let c = w * k / cols;
+                let (lo, hi) = (c.saturating_sub(w / 10), (c + w / 10).min(w - 1));
+                (lo..=hi).min_by_key(|&x| ink_col(x)).unwrap_or(c)
+            }).collect();
+            // how much drawing the cuts would slice through, as a share of each cut's length
+            let cost = ys.iter().map(|&y| ink_row(y) as f64 / w as f64).sum::<f64>()
+                + xs.iter().map(|&x| ink_col(x) as f64 / h as f64).sum::<f64>();
+            (cost, xs, ys)
+        };
+        let cut = |xs: &[u32], ys: &[u32]| {
+            let mut d = dil.clone();
+            for &y in ys {
+                for x in 0..w {
+                    d[(y * w + x) as usize] = false;
+                }
+            }
+            for &x in xs {
+                for y in 0..h {
+                    d[(y * w + x) as usize] = false;
+                }
+            }
+            label(&d, w, h)
+        };
+        // The model doesn't always use the grid it was asked for (one sheet came back as a
+        // single row of 6), so try every layout that holds n frames. Of those whose cuts
+        // really give n separate drawings, take the one slicing through the least drawing.
+        let mut best: Option<(f64, (Vec<u32>, Vec<(u32, Box4)>))> = None;
+        for (c, r) in std::iter::once((cols, rows)).chain((1..=n as u32).filter(|c| n as u32 % c == 0).map(|c| (c, n as u32 / c))) {
+            let (cost, xs, ys) = seams(c, r);
+            let got = cut(&xs, &ys);
+            if enough(&got.1, n) && best.as_ref().is_none_or(|b| cost < b.0) {
+                best = Some((cost, got));
             }
         }
-        for k in 1..cols {
-            let c = w * k / cols;
-            let (lo, hi) = (c.saturating_sub(w / 10), (c + w / 10).min(w - 1));
-            let x = (lo..=hi).min_by_key(|&x| ink_col(x)).unwrap_or(c);
-            for y in 0..h {
-                dil[(y * w + x) as usize] = false;
-            }
-        }
-        (labels, comps) = label(&dil, w, h);
+        // nothing worked: keep the requested grid's cut so the error below says what it found
+        (labels, comps) = match best {
+            Some((_, got)) => got,
+            None => { let (_, xs, ys) = seams(cols, rows); cut(&xs, &ys) }
+        };
     }
     if comps.len() < n {
         anyhow::bail!("found {} drawings on the sheet, expected {n}", comps.len());
@@ -406,7 +454,17 @@ pub fn cut_sheet(path: &Path, n: usize, pixel: bool) -> anyhow::Result<Vec<Frame
 pub fn standard_states() -> serde_json::Value {
     json!({
         "appear":  {"sheet": "appear", "frames": [0, 1, 2, 3, 4, 5, 4, 5], "fps": 9, "mode": "once"},
-        "idle":    {"sheet": "idle", "frames": [0,0,0,0,1,1,0,0,0,0,2,0,0,0,1,1,0,0,0,0,0,3,3,3,0,0,4,4,0,0,0,0,0,0,5,5,5,0], "fps": 4, "mode": "loop"},
+        // between idle loops it breaks into one of these little actions (never the same one twice running)
+        "idle":    {"sheet": "idle", "frames": [0,0,0,0,1,1,1,0,0,0,3,3,3,0,0,0,4,4,4,0,0,0,2,2,2,0,0,0,5,5,5,0], "fps": 4, "mode": "loop",
+                    "variants": [
+                        {"sheet": "fidget", "frames": [0,0,0,0,0,0], "fps": 4, "mode": "once"},
+                        {"sheet": "fidget", "frames": [1,1,1,1,1,1], "fps": 4, "mode": "once"},
+                        {"sheet": "fidget", "frames": [2,2,2,2,2], "fps": 4, "mode": "once"},
+                        {"sheet": "fidget", "frames": [3,3,3,3,3,3], "fps": 4, "mode": "once"},
+                        {"sheet": "fidget", "frames": [4,4,4,4,4,4], "fps": 4, "mode": "once"},
+                        {"sheet": "fidget", "frames": [5,5,5,5,5], "fps": 4, "mode": "once"},
+                        {"sheet": "dance", "frames": [0,1,0,1,2,3,4,5,5], "fps": 6, "mode": "once"}
+                    ]},
         "listen":  {"sheet": "talk", "frames": [0, 1, 2, 3], "extra": [4, 5], "mode": "mouth"},
         "think":   {"sheet": "think", "frames": [0, 0, 1, 1, 2, 3, 2, 3], "fps": 4, "mode": "loop"},
         "send":    {"sheet": "send", "frames": [0, 1, 2, 3, 4, 4, 5], "fps": 10, "mode": "once"},
@@ -457,6 +515,15 @@ pub fn write_pack(out: &Path, meta: &serde_json::Value, sheets: &[(String, Vec<F
     char["slot"] = json!({"w": sw, "h": sh});
     char["stand_height"] = json!(if pixel { STAND_PX * PIXEL_BLOCK as f64 } else { stand_h() });
     char["sheets"] = serde_json::Value::Object(sheets_meta);
+    // a state or variant can only use sheets this character actually has
+    let mut states = states;
+    if let Some(map) = states.as_object_mut() {
+        for st in map.values_mut() {
+            if let Some(v) = st.get_mut("variants").and_then(|v| v.as_array_mut()) {
+                v.retain(|x| x["sheet"].as_str().is_some_and(|s| char["sheets"].get(s).is_some()));
+            }
+        }
+    }
     char["states"] = states;
     std::fs::write(out.join("character.json"), serde_json::to_vec_pretty(&char)?)?;
     Ok(())
@@ -502,6 +569,37 @@ mod tests {
     }
 
     #[test]
+    fn a_single_row_of_touching_frames_is_cut_as_a_row() {
+        // asked for 3x2, the model drew one row of 6 tall figures with their elbows touching
+        let mut img = RgbaImage::new(1536, 1024);
+        for k in 0..6u32 {
+            blob(&mut img, k * 256 + 40, 40, 176, 940);
+            if k < 5 {
+                blob(&mut img, k * 256 + 200, 400, 60, 30); // an elbow reaching the next figure
+            }
+        }
+        let f = find_frames(&img, 6, 3).unwrap();
+        assert_eq!(f.list.len(), 6);
+        for (k, fr) in f.list.iter().enumerate() {
+            assert!(fr.b.y1 - fr.b.y0 > 800, "frame {k} is a whole figure, not half of one");
+            assert!(fr.b.x0 + 40 >= k as u32 * 256, "frame {k} is in reading order");
+        }
+    }
+
+    #[test]
+    fn variants_only_point_at_sheets_the_character_has() {
+        let frame = || { let mut img = RgbaImage::new(20, 40); blob(&mut img, 5, 0, 10, 40); Frame { img, foot_x: 10.0, lift: 0.0 } };
+        let dir = std::env::temp_dir().join(format!("baa-pack-test-{}", std::process::id()));
+        let sheets = vec![("idle".to_string(), (0..6).map(|_| frame()).collect()), ("dance".to_string(), (0..6).map(|_| frame()).collect())];
+        write_pack(&dir, &json!({"id": "t", "name": "t"}), &sheets, standard_states()).unwrap();
+        let c: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join("character.json")).unwrap()).unwrap();
+        let v = c["states"]["idle"]["variants"].as_array().unwrap();
+        assert_eq!(v.len(), 1, "only the dance variant survives without a fidget sheet");
+        assert_eq!(v[0]["sheet"], "dance");
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
     fn a_missing_frame_is_caught() {
         let mut img = RgbaImage::new(600, 400);
         for k in 0..5u32 {
@@ -527,6 +625,24 @@ mod tests {
         assert_eq!(c.get_pixel(1, 1)[3], 0);
         assert_eq!(c.get_pixel(9, 1)[3], 0);
         assert_eq!(c.get_pixel(20, 20)[3], 255);
+    }
+
+    #[test]
+    fn removes_a_two_grey_checkerboard_around_a_dark_figure() {
+        // the "think" sheet that came back with a painted mid-grey checkerboard
+        let mut img = RgbaImage::new(64, 64);
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            *p = if (x / 8 + y / 8) % 2 == 0 { Rgba([197, 199, 203, 255]) } else { Rgba([135, 137, 141, 255]) };
+        }
+        for yy in 16..48 {
+            for xx in 20..44 {
+                img.put_pixel(xx, yy, Rgba([40, 30, 60, 255])); // dark hair
+            }
+        }
+        let c = clean(&img);
+        assert_eq!(c.get_pixel(1, 1)[3], 0, "light square gone");
+        assert_eq!(c.get_pixel(9, 1)[3], 0, "dark square gone");
+        assert_eq!(c.get_pixel(32, 32)[3], 255, "the figure stays");
     }
 
     #[test]
